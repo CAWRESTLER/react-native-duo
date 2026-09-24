@@ -1,0 +1,1 @@
+export { ReactNativeDuoView } from './ReactNativeDuoView';
