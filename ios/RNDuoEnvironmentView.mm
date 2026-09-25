@@ -23,6 +23,7 @@ static NSDictionary *RNDuoInsetsDictionary(UIEdgeInsets insets)
 
 @implementation RNDuoEnvironmentView {
   UIView *_sensorView;
+  UIView<RCTComponentViewProtocol> *_reactChild;
   BOOL _includeInactiveRegions;
   UIHingeInteraction *_hingeInteraction API_AVAILABLE(ios(27.1));
   UIHinge *_hinge API_AVAILABLE(ios(27.1));
@@ -74,7 +75,23 @@ static NSDictionary *RNDuoInsetsDictionary(UIEdgeInsets insets)
 - (void)layoutSubviews
 {
   [super layoutSubviews];
+  _reactChild.frame = _sensorView.bounds;
   [self emitEnvironmentIfNeeded];
+}
+
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  // Keep React descendants inside the sensor. If the transparent sensor remains
+  // a sibling above them, it wins hit testing and blocks every tap and swipe.
+  _reactChild = childComponentView;
+  [_sensorView insertSubview:childComponentView atIndex:MIN(index, _sensorView.subviews.count)];
+  [self setNeedsLayout];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  [childComponentView removeFromSuperview];
+  if (childComponentView == _reactChild) _reactChild = nil;
 }
 
 - (void)safeAreaInsetsDidChange
@@ -196,6 +213,7 @@ static NSDictionary *RNDuoInsetsDictionary(UIEdgeInsets insets)
 {
   [super prepareForRecycle];
   _lastPayload = nil;
+  _reactChild = nil;
   if (@available(iOS 27.1, *)) _hinge = nil;
 }
 

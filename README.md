@@ -479,6 +479,12 @@ yarn example ios
 
 Choose an iPhone Duo simulator in Xcode or pass it to Expo's device picker. See the [example guide](./example/README.md) for a tour and troubleshooting.
 
+After changing this package's native iOS sources, force a fresh development build instead of reloading Metro:
+
+```sh
+yarn example:ios:clean --device "iPhone Duo"
+```
+
 ## API exports
 
 ```ts
@@ -508,6 +514,10 @@ Keep `verticalBehavior="automatic"`, render the toolbar as a full-screen contain
 **The Expo app cannot find the native view**
 
 Expo Go cannot load it. Rebuild a development client after installation with `npx expo run:ios` or an EAS development build.
+
+**The screen renders, but taps and scrolling do nothing**
+
+The simulator still has an older native binary. JavaScript reloads do not replace Objective-C++ view code. From this repository run `yarn example:ios:clean --device "iPhone Duo"`; in a consuming Expo app run `npx expo prebuild --clean` followed by `npx expo run:ios`.
 
 **The app exits with “UIScene life cycle is required”**
 

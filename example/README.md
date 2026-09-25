@@ -17,11 +17,10 @@ Select an iPhone Duo simulator running iOS 27.1 or newer. The example is a nativ
 The checked-in Expo config enables the scene lifecycle required by the iOS 27 SDK and builds Expo modules from source with the current Xcode toolchain. If the native project needs to be refreshed:
 
 ```sh
-cd example
-npx expo prebuild --clean
-cd ..
-yarn example ios
+yarn example:ios:clean --device "iPhone Duo"
 ```
+
+Use that clean command whenever package code under `ios/` changes. A Metro reload only replaces JavaScript; it cannot replace the native provider or toolbar already installed in the simulator. If the screen renders but taps and scrolling are inert, you are still running an older native binary—quit that app and run the clean command above.
 
 ## Tour
 

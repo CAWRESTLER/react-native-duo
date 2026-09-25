@@ -34,6 +34,7 @@
   ],
   "scripts": {
     "example": "yarn workspace @cawrestler/react-native-duo-example",
+    "example:ios:clean": "yarn workspace @cawrestler/react-native-duo-example expo prebuild --clean && yarn workspace @cawrestler/react-native-duo-example ios",
     "clean": "del-cli lib",
     "prepare": "bob build",
     "prepublishOnly": "yarn lint && yarn typecheck && yarn test --runInBand && yarn prepare",
