@@ -25,7 +25,7 @@ The [example app](/example/) demonstrates usage of the library. You need to run 
 
 It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Changes to the library's JavaScript code will be reflected in the example app without a rebuild, but native code changes will require a rebuild of the example app.
 
-If you want to use Android Studio or Xcode to edit the native code, you can open the `example/android` or `example/ios` directories respectively in those editors. To edit the Objective-C or Swift files, open `example/ios/ReactNativeDuoExample.xcworkspace` in Xcode and find the source files at `Pods > Development Pods > @cawrestler/react-native-duo`.
+If you want to use Android Studio or Xcode to edit the native code, first generate the platform projects with `yarn example expo prebuild`. To edit the Objective-C++ files, open `example/ios/ReactNativeDuoLab.xcworkspace` in Xcode and find the source files at `Pods > Development Pods > @cawrestler/react-native-duo`.
 
 To edit the Java or Kotlin files, open `example/android` in Android studio and find the source files at `cawrestler-react-native-duo` under `Android`.
 
@@ -49,13 +49,9 @@ To run the example app on iOS:
 yarn example ios
 ```
 
-To confirm that the app is running with the new architecture, you can check the Metro logs for a message like this:
+To confirm that the app is running with the New Architecture, open the React Native DevTools or inspect the Metro/device logs. The native components in this package are Fabric components, so the New Architecture must remain enabled.
 
-```sh
-Running "ReactNativeDuoExample" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
-```
-
-Note the `"fabric":true` and `"concurrentRoot":true` properties.
+The iOS implementation requires Xcode 27.1 and an iOS 27.1 simulator or device. Use the iPhone Duo simulator to exercise the hardware-specific paths.
 
 To run the example app on Web:
 
@@ -89,31 +85,47 @@ yarn test
 
 
 
-### Publishing to npm
+## Publishing a release
 
-We use [release-it](https://github.com/release-it/release-it) to make it easier to publish new versions. It handles common tasks like bumping version based on semver, creating tags and releases etc.
+Releases publish the public `@cawrestler/react-native-duo` package to npm, create a `v<version>` git tag, and create a matching GitHub release. Before the first release:
 
-To publish new versions, run the following:
+- Create the `CAWRESTLER/react-native-duo` repository on GitHub and push the `main` branch.
+- Confirm that the npm account belongs to or can publish under the `@cawrestler` organization.
+- Run `npm login` and authenticate GitHub for `release-it` (for example, export a `GITHUB_TOKEN` with repository release access).
+- Protect `main` and require the repository's CI checks before merging.
+
+For every release, start with a clean `main` branch and run:
 
 ```sh
-yarn release
+yarn install --immutable
+yarn prepublishOnly
+yarn pack:check
+yarn release patch
 ```
 
+Replace `patch` with `minor`, `major`, or an exact version when appropriate. `release-it` updates `package.json`, commits the change, creates the `v<version>` tag, publishes to npm with public access, pushes the commit/tag, and creates the GitHub release. Do not reuse or delete a published version; publish a new version instead.
+
+To inspect the release without changing git, GitHub, or npm, run:
+
+```sh
+yarn release patch --dry-run
+```
 
 ### Scripts
 
 The `package.json` file contains various scripts for common tasks:
 
-- `yarn`: setup project by installing dependencies.
+- `yarn`: set up the project by installing dependencies.
 - `yarn typecheck`: type-check files with TypeScript.
-  - `yarn lint`: lint files with [ESLint](https://eslint.org/).
-    - `yarn test`: run unit tests with [Jest](https://jestjs.io/).
-  - `yarn example start`: start the Metro server for the example app.
+- `yarn lint`: lint files with [ESLint](https://eslint.org/).
+- `yarn test`: run unit tests with [Jest](https://jestjs.io/).
+- `yarn prepublishOnly`: run every package gate and build the distributable output.
+- `yarn pack:check`: preview the exact npm tarball contents.
+- `yarn example start`: start the Metro server for the example app.
 - `yarn example android`: run the example app on Android.
 - `yarn example ios`: run the example app on iOS.
-  - `yarn example web`: run the example app on Web.
+- `yarn example web`: run the example app on Web.
 - `yarn example build:web`: build the example app for Web.
-  
 ### Sending a pull request
 
 > **Working on your first pull request?** You can learn how from this _free_ series: [How to Contribute to an Open Source Project on GitHub](https://app.egghead.io/playlists/how-to-contribute-to-an-open-source-project-on-github).
