@@ -4,12 +4,16 @@ The repository contains the library at the root and the official Duo Lab RN appl
 
 ## Development
 
-Use the Node version in [`.nvmrc`](./.nvmrc) and the checked-in Yarn version. Install from the repository root:
+Use Node 24.21.0 from [`.nvmrc`](./.nvmrc) and the checked-in Yarn version. Install from the repository root:
 
 ```sh
 corepack enable
 yarn install --immutable
 ```
+
+Installation configures the repository-local hooks in `.githooks/`. Reinstall them with `yarn hooks:install` if needed. The installer skips CI and packaged consumers. It preserves an existing custom `core.hooksPath` and prints an explicit opt-in command instead of replacing it.
+
+The pre-push hook blocks any destination update to `main`, including force pushes and deletions. Feature branch and tag updates run `corepack yarn validate` before pushing; pushing commits from local `main` to a feature branch is allowed. Empty pushes and feature-branch deletions skip validation. Missing tools, malformed Git input, and failed or interrupted validation block the push.
 
 The example consumes the local library workspace. JavaScript changes reload through Metro; changes under `ios/`, codegen specifications, or the config plugin require a new development build.
 
@@ -34,57 +38,70 @@ Other development commands:
 yarn example android
 yarn example web
 yarn example build:web
+yarn validate
 yarn typecheck
 yarn lint
+yarn test:tooling
 yarn test --runInBand
 yarn example typecheck
 yarn pack:check
 ```
 
-`pack:check` builds the distributable output, extracts a real npm tarball into a temporary directory, validates its entry points/types/native sources, and runs the packed Expo config plugin. It checks that the example application and native build outputs stay out of the npm package. It never publishes anything.
+`validate` runs lint, library and example type checks, the repository/release tooling tests, library tests, and `pack:check`. `prepublishOnly` runs the same validation. `pack:check` builds the distributable output, extracts a real npm tarball into a temporary directory, validates its entry points/types/native sources, and runs the packed Expo config plugin. It checks that the example application and native build outputs stay out of the npm package. These commands do not publish.
+
+## Pull requests and protected main
+
+Work on a feature branch, push it, and open a pull request targeting `main`. The `Protect main` server ruleset requires a pull request, resolved review conversations, an up-to-date branch, and a successful `CI Required` check. That check requires all six jobs to succeed: `lint`, `test`, `build-library`, `build-android`, `build-ios`, and `build-web`. Failed, cancelled, and skipped jobs cannot authorize a merge. Squash merging preserves the required linear history; main deletions and force updates are blocked.
+
+The solo maintainer can merge their own pull request after those requirements pass: the required approving review count is zero, so a second person's approval is not required. The ruleset has no owner or administrator bypass. Local hooks can be bypassed on a developer's machine; the server rule remains the merge authority.
+
+Describe the observable behavior and how you verified it. Include the affected screen and fold pose for UI changes, and note any capability that could only be tested on hardware. Use conventional pull request titles (`fix:`, `feat:`, `docs:`, and similar) so squash commits produce useful release notes. Keep changes focused and update usage documentation when the public API changes.
 
 ## Validation before a release
 
-Run `yarn prepublishOnly` and the example's type check. Build the native example with Xcode 27.1+ and verify all seven screens against the Swift lab in Open, partial/Book, and compact poses. Test scrolling, navigation, tab selection, toolbar actions, overflow, arrangement controls, scene accessory registration, and user-triggered camera permission. Camera discovery and accessory availability depend on simulator/device support; record unavailable hardware paths rather than describing them as fully tested.
+Run `yarn validate`. Build the native example with Xcode 27.1+ and verify all seven screens against the Swift lab in Open, partial/Book, and compact poses. Test scrolling, navigation, tab selection, toolbar actions, overflow, arrangement controls, scene accessory registration, and user-triggered camera permission. Record the tested commit, device/simulator, and results in the release pull request. Camera discovery and accessory availability depend on simulator/device support; record unavailable hardware paths rather than describing them as fully tested.
 
-CI checks package lint/types/tests, distribution contents, and example builds on Android, iOS, and web. The iOS job requires a runner image that includes Xcode 27.1; GitHub runner availability is separate from the source code's SDK support. A passing JavaScript distribution check alone does not establish native or visual parity.
+CI checks package lint/types/tests, distribution contents, and example builds on Android, iOS, and web. The required iOS job uses the `xcode-27` runner label and needs Xcode 27.1 with its SDK. An unavailable runner leaves CI pending and blocks merge/publication. Passing automated checks alone does not establish native behavior or visual parity.
 
 ## Publishing
 
-The package publishes publicly as `@cawrestler/react-native-duo`. A release also pushes a `v<version>` git tag and creates a matching GitHub release. Setup needed before the first publication:
+The public package name is `@cawrestler/react-native-duo`. The package is currently unpublished, and npm authentication/trusted-publisher setup remains a maintainer prerequisite.
 
-- Push the reviewed source to `CAWRESTLER/react-native-duo` on GitHub.
-- Confirm the npm account can publish under the `@cawrestler` scope, then authenticate with `npm login` and satisfy npm's publishing authentication requirements.
-- Supply `GITHUB_TOKEN` with access to create repository releases.
-- Work from a clean, current `main` branch and review the [changelog](./CHANGELOG.md).
+### Prepare a release pull request
 
-Verify the package and inspect the proposed release:
+Use a clean branch named `codex/release-*` or `release-*` based on current `origin/main`. Local `release-it` only updates the version and [changelog](./CHANGELOG.md): automatic Git commit, tag, and push, npm publishing, and GitHub release creation are all disabled. Release commands are restricted to those release branches.
 
 ```sh
-yarn install --immutable
-yarn prepublishOnly
-yarn example typecheck
-yarn release:dry-run --no-increment
-```
-
-The initial version in `package.json` is `0.1.0`. Publish that version using the no-increment flow once the source is committed and all release checks pass:
-
-```sh
-yarn release --no-increment
-```
-
-Subsequent releases increment the version:
-
-```sh
+git fetch origin
+git switch -c codex/release-0.1.1 origin/main
+yarn release:dry-run patch
 yarn release patch
+yarn validate
+git diff -- package.json CHANGELOG.md yarn.lock
 ```
 
-Use `minor`, `major`, or an exact version as appropriate. `release-it` prompts for the version and release operations, updates the package/changelog, commits, tags, publishes to npm with public access, pushes, and creates the GitHub release. `--only-version` means only the version is prompted for and the remaining operations are automated; it is not a preview or version-only edit. Preview operations with `release:dry-run`. See the [release-it documentation](https://github.com/release-it/release-it#interactive-vs-ci-mode).
+Use `minor`, `major`, or an exact unused version as appropriate. To retain the initial `0.1.0` version, use `yarn release:dry-run --no-increment` and `yarn release --no-increment` on its release branch. Commit the reviewed version/changelog and any lockfile changes, push the release branch, and open a pull request. Merge only after `CI Required` succeeds and the native/visual test evidence has been reviewed.
 
-Do not reuse an already published version. If npm publishing succeeds and a later GitHub step fails, inspect the recorded state before retrying; do not blindly publish again. For an initial SDK preview release, choose a prerelease version and npm `next` tag if the support policy should remain experimental.
+### First publication and npm setup
 
-The npm tarball includes the native podspec and config plugin. The example lives on GitHub, and the host application installs pods normally; there is no separate CocoaPods registry publication to perform. Nothing in CI publishes automatically.
+The first registry publication requires a maintainer authentication bootstrap. npm requires the package to already exist before its trusted publisher can be configured, as documented in [npm trust prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). After the initial release pull request is merged and its exact `main` commit has green CI and recorded native/visual testing, the maintainer must authenticate with an npm account authorized for `@cawrestler`, satisfy npm's authentication requirements, and deliberately perform that first publication. Preparing a release or setting up this repository does not perform the bootstrap.
 
-## Pull requests
+After the package exists, add its GitHub Actions trusted publisher in npm package settings using these exact values:
 
-Describe the observable behavior and how you verified it. Include the affected screen and fold pose for UI changes, and note any capability that could only be tested on hardware. Use conventional commit titles (`fix:`, `feat:`, `docs:`, and similar) so release notes can be generated. Keep changes focused and update usage documentation when the public API changes.
+- Organization or user: `CAWRESTLER`
+- Repository: `react-native-duo`
+- Workflow filename: `publish.yml`
+- Environment name: `npm`
+- Allowed actions: enable direct publishing with `npm publish`, which this workflow uses.
+
+See [npm's trusted publishing guide](https://docs.npmjs.com/trusted-publishers/#for-github-actions). Subsequent workflow publications use short-lived OIDC credentials; no npm publish token is stored in this repository or its GitHub Actions secrets. The GitHub `npm` environment requires repository-owner approval and permits deployment only from `main`. The solo owner may approve their own requested deployment. That deployment approval is separate from the zero-approving-review pull request policy.
+
+### Publish a merged release
+
+After npm setup, open the manual [Publish npm workflow](https://github.com/CAWRESTLER/react-native-duo/actions/workflows/publish.yml), select `main`, and choose `next` for previews or `latest` for stable releases. A prerelease version must use `next`. Confirm completed native/device and visual testing, then approve the `npm` deployment as repository owner after reviewing the requested commit and channel.
+
+The workflow checks out the exact requested `main` commit and requires its latest main push CI run to have succeeded, including all six jobs and `CI Required`. A green pull request run or a green run for another commit is insufficient. It repeats those checks after environment approval, validates the package again, publishes to npm, and creates the matching `v<version>` tag and GitHub release. CI, branch pushes, and local release preparation do not trigger publication.
+
+Do not reuse an npm version or move an existing release tag. If a run fails, inspect the registry version/dist-tag, workflow commit, and GitHub tag/release before retrying. If npm succeeded but the GitHub release step failed, complete the missing tag/release for the same published commit; rerunning the publish job would attempt to publish the same version again. If npm never accepted the version, confirm that state and any existing tag target before rerunning the manual workflow. Never retry publication blindly.
+
+The npm tarball includes the native podspec and config plugin. The example lives on GitHub, and the host application installs pods normally; there is no separate CocoaPods registry publication to perform.

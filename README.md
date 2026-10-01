@@ -755,7 +755,11 @@ This repository includes its own `yarn.lock`. Run Yarn from the repository root 
 
 The npm package includes the podspec, iOS sources, Android fallback package, Expo config plugin, JavaScript, and TypeScript declarations. React Native autolinking consumes the bundled podspec; the host app still installs its iOS pods normally. No separate CocoaPods registry release is required.
 
-Run `yarn prepublishOnly` before releasing. This checks types, lint, tests, builds the library, and validates an actual npm tarball. The tarball check verifies every exported entry point, platform implementation, declaration, native/codegen source, podspec, and Expo plugin, including plugin resolution and camera usage text. It also rejects bundled example apps, dependencies, tests, and native build outputs. CI runs the same distribution check.
+Develop on feature branches and open pull requests to `main`. Dependency installation installs local pre-push safeguards that block direct `main` updates and run `yarn validate` for feature/tag updates. The server requires an up-to-date pull request and `CI Required`, which gates all six lint/test/library/Android/iOS/web jobs. The solo owner needs no second person's approving review, and the server ruleset has no bypass.
+
+Run `yarn validate` to check lint, library/example types, repository/release safeguards, library tests, and the built npm tarball. The distribution check verifies exported entry points, types, native/codegen sources, the podspec, and Expo plugin, and excludes demo/build outputs. Native/device and visual checks remain required before a release.
+
+Prepare version/changelog changes on `codex/release-*` or `release-*` branches and merge them through a pull request. Local `release-it` has automatic commit/tag/push and npm/GitHub publishing disabled. After npm setup, publishing uses the manual **Publish npm** workflow on the exact merged `main` commit with green CI, a deliberate `next`/`latest` choice, testing confirmation, and owner approval of the `npm` environment. The package is currently unpublished; [first-publication authentication and trusted-publisher setup](./CONTRIBUTING.md#first-publication-and-npm-setup) must be completed by its maintainer.
 
 ## License
 

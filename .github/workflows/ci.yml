@@ -1,5 +1,6 @@
 name: CI
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -20,6 +21,7 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -39,6 +41,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -50,8 +53,12 @@ jobs:
       - name: Run unit tests
         run: yarn test --maxWorkers=2 --coverage
 
+      - name: Test repository and release safeguards
+        run: yarn test:tooling
+
   build-library:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -65,6 +72,7 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -99,12 +107,14 @@ jobs:
 
       - name: Build example for Android
         env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+          JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: |
           yarn example build:android
 
   build-ios:
-    runs-on: macos-latest
+    # The normal macOS image has Xcode 26.x; Duo needs the 27.1 SDK.
+    runs-on: xcode-27
+    timeout-minutes: 60
 
     env:
       XCODE_VERSION: 27.1
@@ -134,6 +144,7 @@ jobs:
 
   build-web:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -145,3 +156,24 @@ jobs:
       - name: Build example for Web
         run: |
           yarn example build:web
+
+  required:
+    name: CI Required
+    if: ${{ always() }}
+    needs: [lint, test, build-library, build-android, build-ios, build-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every validation and native build to succeed
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node <<'NODE'
+          const jobs = JSON.parse(process.env.JOB_RESULTS);
+          const failures = Object.entries(jobs).filter(([, job]) => job.result !== 'success');
+          for (const [name, job] of Object.entries(jobs)) console.log(`${name}: ${job.result}`);
+          if (failures.length) {
+            console.error('Required CI failed: failed, cancelled, or skipped jobs cannot authorize a merge.');
+            process.exit(1);
+          }
+          NODE

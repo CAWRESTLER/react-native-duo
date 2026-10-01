@@ -63,6 +63,7 @@ async function checkPackage() {
       'ios/RNDuoUtilities.h',
       'ios/RNDuoUtilities.mm',
       'app.plugin.js',
+      'scripts/install-git-hooks.js',
       'lib/module/package.json',
       'lib/typescript/src/types.d.ts',
       'lib/module/context.js',
@@ -121,6 +122,17 @@ async function checkPackage() {
     assert.equal(
       metadata.publishConfig.registry,
       'https://registry.npmjs.org/'
+    );
+    for (const file of files) {
+      assert(
+        !file.startsWith('scripts/') || file === 'scripts/install-git-hooks.js',
+        `Repository tooling leaked into the package: ${file}`
+      );
+    }
+    execFileSync(
+      process.execPath,
+      [path.join(packageRoot, 'scripts', 'install-git-hooks.js')],
+      { cwd: packageRoot, env: { ...process.env, CI: '', GITHUB_ACTIONS: '' } }
     );
 
     // Dependencies come from the checkout, but all package entry points and plugin
