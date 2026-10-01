@@ -610,6 +610,14 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
   [self emitStateIfNeeded];
 }
 
+- (void)safeAreaInsetsDidChange
+{
+  [super safeAreaInsetsDidChange];
+  // A status-bar/camera change need not change the preferred bar edge or the
+  // host bounds. Refresh the reported insets after UIKit's next layout pass.
+  [self setNeedsLayout];
+}
+
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
 {
   [super traitCollectionDidChange:previousTraitCollection];
@@ -666,12 +674,33 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
+  if (self.hidden || self.alpha < 0.01 || !self.userInteractionEnabled) return nil;
+  // Preserve the directly sized React child's existing hit-test path before
+  // inspecting UIKit's overlaid chrome.
+  UIView *reactHit = nil;
   if (_reactChild && !_reactChild.hidden && _reactChild.userInteractionEnabled) {
+    // Fabric's layout bounds can lag behind the native host during folding.
+    // Always try the directly sized React child, even when super returns nil.
     CGPoint childPoint = [_reactChild convertPoint:point fromView:self];
-    UIView *reactHit = [_reactChild hitTest:childPoint withEvent:event];
-    if (reactHit) return reactHit;
+    reactHit = [_reactChild hitTest:childPoint withEvent:event];
   }
-  return [super hitTest:point withEvent:event];
+  UIView *nativeHit = [super hitTest:point withEvent:event];
+  if (!_reactChild || ![nativeHit isDescendantOfView:_reactChild]) {
+    // React deliberately occupies the whole host, including the area behind
+    // floating bars. Give real native controls first refusal so edge-to-edge
+    // content cannot steal tab, toolbar, navigation, or overflow-menu taps.
+    // Do not give clear controller/transition surfaces the same priority:
+    // they cover the entire host and otherwise prevent React from scrolling.
+    for (UIView *candidate = nativeHit; candidate && candidate != _containerView;
+         candidate = candidate.superview) {
+      if ([candidate isKindOfClass:[UIControl class]] ||
+          (candidate.isAccessibilityElement &&
+           (candidate.accessibilityTraits & UIAccessibilityTraitButton) != 0)) {
+        return nativeHit;
+      }
+    }
+  }
+  return reactHit ?: nativeHit;
 }
 
 - (void)layoutReactChild
@@ -725,7 +754,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
     return RNDuoValidatedBarInsets(insets, bounds);
   }
   RNDuoToolbarContentController *contentController = [self selectedContentController];
-  if (!contentController) return UIEdgeInsetsZero;
+  if (!contentController) return RNDuoValidatedBarInsets(_containerView.safeAreaInsets, _containerView.bounds);
   [contentController.view layoutIfNeeded];
   NSString *edge = RNDuoVerticalBarEdgeName(contentController.traitCollection);
   BOOL isVertical = ![_verticalBehavior isEqualToString:@"disabled"] &&
@@ -734,6 +763,20 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
   UIView *rootView = _tabBarController.view;
   CGRect bounds = rootView.bounds;
   if (CGRectIsEmpty(bounds) || CGRectIsNull(bounds)) return UIEdgeInsetsZero;
+  // This stable sibling layer inherits the host's system safe area without
+  // the child tab/navigation controller's additional app-bar contributions.
+  // Never zero it just because an app toolbar happens to be absent.
+  UIEdgeInsets systemInsets = RNDuoValidatedBarInsets(_containerView.safeAreaInsets, bounds);
+  UINavigationController *navigationController = [self selectedNavigationController];
+  BOOL hasNavigationBar = navigationController && !navigationController.navigationBarHidden;
+  BOOL hasToolbar = navigationController && !navigationController.toolbarHidden &&
+      contentController.toolbarItems.count > 0;
+  BOOL hasTabBar = _tabIdentifiers.count > 0;
+  BOOL hasAppChrome = hasNavigationBar || hasToolbar || hasTabBar;
+  // verticalBarEdge describes a preferred edge even if no app bar is visible.
+  // In particular, items=[] plus showsNavigationBar=false must not reserve an
+  // invented 84-point app rail. Camera/status/home-indicator protection remains.
+  if (!hasAppChrome) return systemInsets;
   CGRect safeFrame = contentController.view.safeAreaLayoutGuide.layoutFrame;
   CGRect unobscuredFrame = [contentController.view convertRect:safeFrame toView:rootView];
   unobscuredFrame = CGRectIntersection(bounds, unobscuredFrame);
@@ -754,8 +797,18 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
       MAX(0, CGRectGetMaxY(bounds) - CGRectGetMaxY(unobscuredFrame)),
       MAX(0, CGRectGetMaxX(bounds) - CGRectGetMaxX(unobscuredFrame)));
 
-  UINavigationController *navigationController = [self selectedNavigationController];
-  if (navigationController && !navigationController.navigationBarHidden) {
+  // UIKit can retain the previous horizontal bar's safe-area contribution
+  // during open/book transitions. In vertical mode start from the stable host
+  // system insets, then add only the current app chrome below.
+  if (isVertical) insets = systemInsets;
+  else {
+    insets.top = MAX(insets.top, systemInsets.top);
+    insets.left = MAX(insets.left, systemInsets.left);
+    insets.bottom = MAX(insets.bottom, systemInsets.bottom);
+    insets.right = MAX(insets.right, systemInsets.right);
+  }
+
+  if (hasNavigationBar) {
     CGRect navigationFrame = [navigationController.view convertRect:navigationController.navigationBar.frame
                                                                toView:rootView];
     BOOL horizontalNavigationFrame = CGRectGetWidth(navigationFrame) > CGRectGetHeight(navigationFrame) &&
@@ -768,7 +821,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
   }
   // A vertical arrangement keeps the horizontal toolbar object alive, but its
   // transition frame does not describe an obscured bottom region.
-  if (navigationController && !navigationController.toolbarHidden && !isVertical) {
+  if (hasToolbar && !isVertical) {
     CGRect toolbarFrame = [navigationController.view convertRect:navigationController.toolbar.frame
                                                             toView:rootView];
     BOOL horizontalToolbarFrame = CGRectGetWidth(toolbarFrame) > CGRectGetHeight(toolbarFrame) &&
@@ -780,27 +833,39 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
     }
   }
 
-  // The combined vertical bar is overlaid and can settle after UIKit's
-  // safe-area pass. Always reserve the standard rail footprint for React.
-  if (_showsNavigationBar && isVertical) {
+  // The combined bar can settle after the content controller's safe-area pass.
+  // Keep the established header fallback while its navigation bar is visible.
+  if (hasNavigationBar && isVertical) {
     insets.top = MAX(insets.top, 80.0);
   }
   if (isVertical) {
-    // UITabBarController still contributes its horizontal tab-bar safe-area
-    // inset while presenting the combined vertical rail.
-    insets.bottom = 0;
-  }
-  // UIKit can retain an oversized horizontal safe-area inset from the tab
-  // controller while the device transitions between open and book poses.
-  // In vertical mode the combined rail has a stable footprint, so replace
-  // those stale horizontal values instead of compounding them.
-  CGFloat railClearance = 84.0;
-  if ([edge isEqualToString:@"trailing"]) {
-    insets.left = 0;
-    insets.right = railClearance;
-  } else if ([edge isEqualToString:@"leading"]) {
-    insets.left = railClearance;
-    insets.right = 0;
+    BOOL leading = [edge isEqualToString:@"leading"];
+    CGFloat systemClearance = leading ? systemInsets.left : systemInsets.right;
+    CGFloat railClearance = 84.0;
+    if (@available(iOS 26.0, *)) {
+      // Prefer UIKit's actual unobscured content guide when it describes the
+      // current vertical edge. Reject stale horizontal/oversized guides rather
+      // than allowing a pose transition to collapse the React content width.
+      CGRect guide = [rootView convertRect:_tabBarController.contentLayoutGuide.layoutFrame toView:rootView];
+      CGRect clippedGuide = CGRectIntersection(bounds, guide);
+      CGFloat clearance = leading
+          ? CGRectGetMinX(clippedGuide) - CGRectGetMinX(bounds)
+          : CGRectGetMaxX(bounds) - CGRectGetMaxX(clippedGuide);
+      CGFloat oppositeClearance = leading
+          ? CGRectGetMaxX(bounds) - CGRectGetMaxX(clippedGuide)
+          : CGRectGetMinX(clippedGuide) - CGRectGetMinX(bounds);
+      CGFloat systemOpposite = leading ? systemInsets.right : systemInsets.left;
+      BOOL usableGuide = !CGRectIsNull(clippedGuide) && !CGRectIsEmpty(clippedGuide) &&
+          std::isfinite(clearance) && std::isfinite(oppositeClearance) &&
+          CGRectGetWidth(clippedGuide) >= CGRectGetWidth(bounds) * 0.5 &&
+          CGRectGetHeight(clippedGuide) >= CGRectGetHeight(bounds) * 0.5 &&
+          clearance > systemClearance + 0.5 &&
+          clearance <= MAX(160.0, CGRectGetWidth(bounds) * 0.25) &&
+          oppositeClearance <= MAX(16.0, systemOpposite + 8.0);
+      if (usableGuide) railClearance = clearance;
+    }
+    if (leading) insets.left = MAX(systemInsets.left, railClearance);
+    else insets.right = MAX(systemInsets.right, railClearance);
   }
   // UIKit can temporarily report the old axis's content guides during a bar
   // transition. Never send a negative/empty React content rectangle: reject

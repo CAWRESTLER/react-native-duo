@@ -10,6 +10,7 @@ const {
 const { createRequire } = require('node:module');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
+const { validateReleaseNotes } = require('./verify-release');
 
 // Inspect the actual consumer artifact rather than the workspace symlink.
 const projectRoot = path.resolve(__dirname, '..');
@@ -25,6 +26,9 @@ async function checkPackage() {
         [
           'pack',
           '--ignore-scripts',
+          // Older npm versions still run prepare while packing. Keep any
+          // lifecycle output off stdout so it cannot corrupt the JSON result.
+          '--foreground-scripts=false',
           '--json',
           '--pack-destination',
           temporaryDirectory,
@@ -59,6 +63,7 @@ async function checkPackage() {
       'LICENSE',
       'README.md',
       'CHANGELOG.md',
+      'RELEASE_NOTES.md',
       'ReactNativeDuo.podspec',
       'ios/RNDuoUtilities.h',
       'ios/RNDuoUtilities.mm',
@@ -122,6 +127,31 @@ async function checkPackage() {
     assert.equal(
       metadata.publishConfig.registry,
       'https://registry.npmjs.org/'
+    );
+    if (metadata.version.includes('-')) {
+      assert.equal(
+        metadata.publishConfig.tag,
+        'next',
+        'Preview tarballs must default to the next npm channel.'
+      );
+    }
+    validateReleaseNotes(
+      readFileSync(path.join(packageRoot, 'RELEASE_NOTES.md'), 'utf8'),
+      metadata
+    );
+    assert(
+      readFileSync(path.join(packageRoot, 'CHANGELOG.md'), 'utf8')
+        .split(/\r?\n/)
+        .some((line) => {
+          if (!/^#{1,3} /.test(line)) return false;
+          const heading = line.replace(/^#{1,3} /, '');
+          return (
+            heading === metadata.version ||
+            heading.startsWith(`${metadata.version} `) ||
+            heading.startsWith(`[${metadata.version}](`)
+          );
+        }),
+      'The packed changelog must include the exact release version.'
     );
     for (const file of files) {
       assert(
@@ -187,7 +217,7 @@ async function checkPackage() {
       `Validated ${metadata.name}@${metadata.version}: ${files.size} files, ${(artifact.size / 1024).toFixed(1)} kB packed.`
     );
     console.log(
-      'JavaScript, platform variants, types, codegen, native sources, podspec, and Expo plugin passed. Demo and build outputs are excluded.'
+      'JavaScript, platform variants, types, codegen, native sources, podspec, Expo plugin, and version-matched release notes passed. Demo and build outputs are excluded.'
     );
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });

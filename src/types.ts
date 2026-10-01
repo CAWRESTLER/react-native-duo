@@ -29,8 +29,9 @@ export interface DuoInsets {
 export interface DuoReservedRegion {
   id: string;
   kind: 'division' | 'occlusion';
-  /** Observing-view coordinates; window regions may lie outside the view's bounds. */
+  /** Margin-inclusive observing-view coordinates; regions may lie outside the view's bounds. */
   frame: DuoRect;
+  /** Interactive-content margins already included in frame; do not expand them again. */
   margins: DuoInsets;
   isActive: boolean;
 }
@@ -174,15 +175,17 @@ export type DuoVerticalBarBehavior = 'automatic' | 'disabled';
 export type DuoVerticalBarCompression =
   'automatic' | 'preferBarItems' | 'preferTabBar';
 
+export type DuoToolbarContentLayout = 'safeArea' | 'edgeToEdge';
+
 export interface DuoToolbarState {
   native: boolean;
   /** System-preferred edge; it can remain vertical while local bars opt out. */
   verticalBarEdge: DuoVerticalBarEdge;
-  /** Whether this toolbar host is displaying its controls vertically. */
+  /** Whether this host uses a vertical bar layout; not an indication of bar visibility. */
   isVertical: boolean;
-  /** Insets that keep React content clear of native navigation, tab, and toolbar chrome. */
+  /** Unobscured insets, applied to children in safeArea mode regardless of background layout. */
   contentInsets: DuoInsets;
-  /** Actual native host dimensions in points, before applying contentInsets. */
+  /** Actual host dimensions in points, before applying contentInsets. */
   contentSize?: Pick<DuoRect, 'width' | 'height'>;
 }
 
@@ -199,6 +202,14 @@ export interface DuoAdaptiveToolbarProps {
   verticalBehavior?: DuoVerticalBarBehavior;
   compressionBehavior?: DuoVerticalBarCompression;
   showsNavigationBar?: boolean;
+  /**
+   * safeArea (default) keeps children in the unobscured content rectangle.
+   * edgeToEdge fills this host's viewport; position important controls using
+   * contentInsets or reserved regions so they avoid bars and system UI.
+   */
+  contentLayout?: DuoToolbarContentLayout;
+  /** Decorative, non-interactive content drawn across the entire host behind children and bars. */
+  background?: ReactNode;
   onItemPress?: (id: string) => void;
   onStateChange?: (state: DuoToolbarState) => void;
   style?: ViewProps['style'];

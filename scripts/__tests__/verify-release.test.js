@@ -5,6 +5,9 @@ const {
   selectCIRun,
   validateJobs,
   verifyReleaseTag,
+  validateReleaseNotes,
+  readReleaseNotes,
+  verifyCommittedReleaseNotes,
   requiredJobs,
 } = require('../verify-release');
 
@@ -41,6 +44,80 @@ test('accepts an explicitly confirmed prerelease from main', () => {
     tag: 'v0.1.0-next.0',
     distTag: 'next',
   });
+});
+
+test('accepts reviewed release notes matching the package name and exact version', () => {
+  for (const newline of ['\n', '\r\n']) {
+    validateReleaseNotes(
+      `# ${metadata.name} ${metadata.version}${newline}${newline}Preview features and known limitations.${newline}`,
+      metadata
+    );
+  }
+});
+
+test('blocks stale, incorrectly named, missing-title, or empty release notes', () => {
+  for (const notes of [
+    `# ${metadata.name} 0.1.0\n\nNotes for another version.`,
+    `# @other/package ${metadata.version}\n\nWrong package.`,
+    `## ${metadata.name} ${metadata.version}\n\nWrong heading.`,
+    'No release heading.',
+    '',
+    `# ${metadata.name} ${metadata.version}\n\n`,
+    `# ${metadata.name} ${metadata.version}\n \t\n`,
+  ]) {
+    assert.throws(() => validateReleaseNotes(notes, metadata));
+  }
+});
+
+test('reads the required notes file and fails clearly when it is missing', () => {
+  const notes = `# ${metadata.name} ${metadata.version}\n\nReviewed notes.`;
+  const calls = [];
+  assert.equal(
+    readReleaseNotes('/repo', metadata, (...args) => {
+      calls.push(args);
+      return notes;
+    }),
+    notes
+  );
+  assert.deepEqual(calls, [['/repo/RELEASE_NOTES.md', 'utf8']]);
+  assert.throws(
+    () =>
+      readReleaseNotes('/repo', metadata, () => {
+        throw Object.assign(new Error('Missing file'), { code: 'ENOENT' });
+      }),
+    /Add reviewed RELEASE_NOTES\.md/
+  );
+  assert.throws(
+    () =>
+      readReleaseNotes('/repo', metadata, () => {
+        throw Object.assign(new Error('Read denied'), { code: 'EACCES' });
+      }),
+    /Read denied/
+  );
+});
+
+test('requires notes to exist in HEAD and rejects staged or unstaged edits', () => {
+  const commands = [];
+  verifyCommittedReleaseNotes((args) => {
+    commands.push(args);
+    return '';
+  });
+  assert.deepEqual(commands, [
+    ['cat-file', '-e', 'HEAD:RELEASE_NOTES.md'],
+    ['diff', '--exit-code', 'HEAD', '--', 'RELEASE_NOTES.md'],
+  ]);
+  for (const failure of ['cat-file', 'diff']) {
+    assert.throws(() =>
+      verifyCommittedReleaseNotes((args) => {
+        if (args[0] === failure) {
+          throw Object.assign(new Error('Unreviewed release notes'), {
+            status: 1,
+          });
+        }
+        return '';
+      })
+    );
+  }
 });
 
 test('allows an absent tag but fails closed on Git lookup errors', () => {

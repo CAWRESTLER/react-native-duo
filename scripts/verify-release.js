@@ -121,6 +121,42 @@ function verifyReleaseTag(git, tag, sha) {
   );
 }
 
+function validateReleaseNotes(notes, metadata) {
+  assert.equal(typeof notes, 'string', 'Release notes must be Markdown text.');
+  const [heading, ...body] = notes.replace(/\r\n?/g, '\n').split('\n');
+  assert.equal(
+    heading,
+    `# ${metadata.name} ${metadata.version}`,
+    'RELEASE_NOTES.md must start with the committed package name and version.'
+  );
+  assert(
+    body.join('\n').trim(),
+    'RELEASE_NOTES.md must include reviewed release notes after its heading.'
+  );
+}
+
+function readReleaseNotes(projectRoot, metadata, read = readFileSync) {
+  let notes;
+  try {
+    notes = read(path.join(projectRoot, 'RELEASE_NOTES.md'), 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error(
+        'Add reviewed RELEASE_NOTES.md before preparing a release.'
+      );
+    }
+    throw error;
+  }
+  validateReleaseNotes(notes, metadata);
+  return notes;
+}
+
+function verifyCommittedReleaseNotes(git) {
+  // Both staged and unstaged edits must match the exact release commit.
+  git(['cat-file', '-e', 'HEAD:RELEASE_NOTES.md']);
+  git(['diff', '--exit-code', 'HEAD', '--', 'RELEASE_NOTES.md']);
+}
+
 function verifyRelease() {
   const projectRoot = path.resolve(__dirname, '..');
   const metadata = JSON.parse(
@@ -135,6 +171,7 @@ function verifyRelease() {
     distTag: process.env.DIST_TAG,
   };
   const release = validateContext(context, metadata);
+  readReleaseNotes(projectRoot, metadata);
   const git = (args) =>
     execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' }).trim();
   assert.equal(
@@ -143,6 +180,7 @@ function verifyRelease() {
     'The checkout must match the requested commit.'
   );
   git(['merge-base', '--is-ancestor', context.sha, 'origin/main']);
+  verifyCommittedReleaseNotes(git);
 
   const api = (endpoint) =>
     JSON.parse(
@@ -180,5 +218,8 @@ module.exports = {
   selectCIRun,
   validateJobs,
   verifyReleaseTag,
+  validateReleaseNotes,
+  readReleaseNotes,
+  verifyCommittedReleaseNotes,
   requiredJobs,
 };

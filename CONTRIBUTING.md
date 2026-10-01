@@ -65,7 +65,7 @@ CI checks package lint/types/tests, distribution contents, and example builds on
 
 ## Publishing
 
-The public package name is `@cawrestler/react-native-duo`. The package is currently unpublished, and npm authentication/trusted-publisher setup remains a maintainer prerequisite.
+The public package name is `@cawrestler/react-native-duo`. The prepared first version is `0.1.0-preview.1`, for the `next` channel. The package is currently unpublished, and npm authentication/trusted-publisher setup remains a maintainer prerequisite. Preparing the version and release notes is not permission to publish them.
 
 ### Prepare a release pull request
 
@@ -80,11 +80,21 @@ yarn validate
 git diff -- package.json CHANGELOG.md yarn.lock
 ```
 
-Use `minor`, `major`, or an exact unused version as appropriate. To retain the initial `0.1.0` version, use `yarn release:dry-run --no-increment` and `yarn release --no-increment` on its release branch. Commit the reviewed version/changelog and any lockfile changes, push the release branch, and open a pull request. Merge only after `CI Required` succeeds and the native/visual test evidence has been reviewed.
+Use `minor`, `major`, or an exact unused version as appropriate. For the already-prepared `0.1.0-preview.1`, do not increment the version again. Before committing any release:
+
+- Check `package.json`, [CHANGELOG.md](./CHANGELOG.md), and [RELEASE_NOTES.md](./RELEASE_NOTES.md) refer to the same version.
+- Make the first line of `RELEASE_NOTES.md` exactly `# @cawrestler/react-native-duo <version>` and review the body. Include supported capabilities, requirements, known gaps, and installation guidance; do not claim unverified hardware behavior or independent RN windows.
+- Keep `publishConfig.tag` as `next` for previews. Change it deliberately for a stable release; the workflow also requires previews to use `next`.
+- Run `yarn install --immutable` and `yarn validate`. Review any lockfile changes, the packed version/notes, and distribution contents.
+- Record native/manual test evidence for the release commit, including scrolling, accessibility, fold poses, cameras, and accessories; unavailable or unverified paths must remain explicit. Native drag scrolling still requires manual confirmation for this preview.
+
+Commit the reviewed release files and any lockfile changes, push the release branch, and open a pull request. Merge only after `CI Required` succeeds and the native/visual test evidence has been reviewed. The initial preview includes the preceding full-width layout changes, so keep those implementation files and their tests together with its release metadata.
 
 ### First publication and npm setup
 
 The first registry publication requires a maintainer authentication bootstrap. npm requires the package to already exist before its trusted publisher can be configured, as documented in [npm trust prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). After the initial release pull request is merged and its exact `main` commit has green CI and recorded native/visual testing, the maintainer must authenticate with an npm account authorized for `@cawrestler`, satisfy npm's authentication requirements, and deliberately perform that first publication. Preparing a release or setting up this repository does not perform the bootstrap.
+
+When publication is explicitly authorized, the initial preview command is `npm publish --access public --tag next` from the verified, merged release checkout after validation. Do not run it from an unreviewed branch or substitute `latest`. After npm accepts it, create `v0.1.0-preview.1` on that exact commit as a GitHub prerelease using `RELEASE_NOTES.md` and without marking it latest. The first authenticated publication and matching release need this manual bootstrap; the OIDC workflow below is for subsequent publications after trusted-publisher setup.
 
 After the package exists, add its GitHub Actions trusted publisher in npm package settings using these exact values:
 
@@ -100,7 +110,7 @@ See [npm's trusted publishing guide](https://docs.npmjs.com/trusted-publishers/#
 
 After npm setup, open the manual [Publish npm workflow](https://github.com/CAWRESTLER/react-native-duo/actions/workflows/publish.yml), select `main`, and choose `next` for previews or `latest` for stable releases. A prerelease version must use `next`. Confirm completed native/device and visual testing, then approve the `npm` deployment as repository owner after reviewing the requested commit and channel.
 
-The workflow checks out the exact requested `main` commit and requires its latest main push CI run to have succeeded, including all six jobs and `CI Required`. A green pull request run or a green run for another commit is insufficient. It repeats those checks after environment approval, validates the package again, publishes to npm, and creates the matching `v<version>` tag and GitHub release. CI, branch pushes, and local release preparation do not trigger publication.
+The workflow checks out the exact requested `main` commit and requires its latest main push CI run to have succeeded, including all six jobs and `CI Required`. A green pull request run or a green run for another commit is insufficient. It verifies that `RELEASE_NOTES.md` is committed and version-matched, repeats those checks after environment approval, validates the package again, publishes to npm, and creates the matching `v<version>` tag and GitHub release with those reviewed notes. Previews are marked prerelease and explicitly not latest on GitHub. CI, branch pushes, and local release preparation do not trigger publication.
 
 Do not reuse an npm version or move an existing release tag. If a run fails, inspect the registry version/dist-tag, workflow commit, and GitHub tag/release before retrying. If npm succeeded but the GitHub release step failed, complete the missing tag/release for the same published commit; rerunning the publish job would attempt to publish the same version again. If npm never accepted the version, confirm that state and any existing tag target before rerunning the manual workflow. Never retry publication blindly.
 

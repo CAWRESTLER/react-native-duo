@@ -114,6 +114,7 @@ export function DuoShell({
   const [menuVisible, setMenuVisible] = useState(false);
   const current = labs.find((lab) => lab.id === selected) ?? labs[0];
   const nativeHeader = selected === 'bars' || selected === 'camera';
+  const fullHeightHost = selected === 'bars';
 
   useEffect(() => {
     if (!sidebarLayout.visible) return;
@@ -129,7 +130,13 @@ export function DuoShell({
 
   return (
     <SafeAreaView
-      edges={nativeHeader ? ['top', 'bottom'] : ['top', 'right', 'bottom']}
+      edges={
+        fullHeightHost
+          ? []
+          : nativeHeader
+            ? ['top', 'bottom']
+            : ['top', 'right', 'bottom']
+      }
       style={[styles.safeArea, { backgroundColor: palette.grouped }]}
     >
       <View style={[styles.root, sidebarLayout.visible && styles.rootWide]}>
@@ -139,6 +146,7 @@ export function DuoShell({
             onSelect={choose}
             width={sidebarLayout.width}
             onHide={() => setSidebarHidden(true)}
+            ownsSafeArea={fullHeightHost}
           />
         ) : null}
         <View
@@ -257,14 +265,18 @@ function Sidebar({
   onSelect,
   width,
   onHide,
+  ownsSafeArea,
 }: {
   selected: LabId;
   onSelect: (lab: LabId) => void;
   width: number;
   onHide: () => void;
+  ownsSafeArea: boolean;
 }) {
   const palette = useDuoPalette();
   const insets = useSafeAreaInsets();
+  const topInset = ownsSafeArea ? insets.top : 0;
+  const bottomOffset = ownsSafeArea ? 0 : -insets.bottom;
   return (
     <View
       style={[
@@ -273,7 +285,8 @@ function Sidebar({
           width,
           backgroundColor: palette.surface,
           borderColor: palette.separator,
-          marginBottom: -insets.bottom,
+          marginBottom: bottomOffset,
+          paddingTop: topInset,
           paddingBottom: insets.bottom,
         },
       ]}

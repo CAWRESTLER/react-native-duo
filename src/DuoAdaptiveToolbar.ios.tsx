@@ -3,7 +3,10 @@ import { StyleSheet, View } from 'react-native';
 
 import NativeDuoToolbarView from './native/DuoToolbarNativeComponent';
 import { parseNativePayload, type NativePayloadEvent } from './native/events';
-import { resolveToolbarContentFrame } from './native/layout';
+import {
+  resolveToolbarContentFrame,
+  resolveToolbarLayoutInsets,
+} from './native/layout';
 import type { DuoAdaptiveToolbarProps, DuoToolbarState } from './types';
 
 export function DuoAdaptiveToolbar({
@@ -14,6 +17,8 @@ export function DuoAdaptiveToolbar({
   verticalBehavior = 'automatic',
   compressionBehavior = 'automatic',
   showsNavigationBar = true,
+  contentLayout = 'safeArea',
+  background,
   onItemPress,
   onStateChange,
   style,
@@ -54,9 +59,14 @@ export function DuoAdaptiveToolbar({
     () =>
       resolveToolbarContentFrame(
         nativeState.contentSize,
-        nativeState.contentInsets
+        nativeState.contentInsets,
+        contentLayout
       ),
-    [nativeState.contentSize, nativeState.contentInsets]
+    [nativeState.contentSize, nativeState.contentInsets, contentLayout]
+  );
+  const layoutInsets = resolveToolbarLayoutInsets(
+    nativeState.contentInsets,
+    contentLayout
   );
   const automaticLayout = useMemo(
     () =>
@@ -68,12 +78,12 @@ export function DuoAdaptiveToolbar({
             height: contentFrame.height,
           }
         : {
-            top: nativeState.contentInsets.top,
-            right: nativeState.contentInsets.right,
-            bottom: nativeState.contentInsets.bottom,
-            left: nativeState.contentInsets.left,
+            top: layoutInsets.top,
+            right: layoutInsets.right,
+            bottom: layoutInsets.bottom,
+            left: layoutInsets.left,
           },
-    [contentFrame, nativeState.contentInsets]
+    [contentFrame, layoutInsets]
   );
   const nativeViewport = useMemo(
     () =>
@@ -104,6 +114,17 @@ export function DuoAdaptiveToolbar({
         pointerEvents="box-none"
         style={[styles.fill, nativeViewport]}
       >
+        {background !== undefined ? (
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            collapsable={false}
+            pointerEvents="none"
+            style={styles.background}
+          >
+            {background}
+          </View>
+        ) : null}
         <View
           collapsable={false}
           style={[styles.insetContent, automaticLayout, contentStyle]}
@@ -117,5 +138,6 @@ export function DuoAdaptiveToolbar({
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  background: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   insetContent: { position: 'absolute' },
 });
