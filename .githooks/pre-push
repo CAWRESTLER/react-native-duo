@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if ! command -v node >/dev/null 2>&1; then
+  echo '[pre-push] Push blocked: Node.js is required. Use the version in .nvmrc and try again.' >&2
+  exit 1
+fi
+
+case "$0" in
+  */*) hook_directory=${0%/*} ;;
+  *) hook_directory=. ;;
+esac
+hook_directory=$(CDPATH= cd "$hook_directory" && pwd) || exit 1
+exec node "$hook_directory/../scripts/check-push.js" "$@"
