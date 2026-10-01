@@ -2,7 +2,7 @@
 
 Build iPhone Duo experiences from React Native without writing your own UIKit or AVFoundation bridge.
 
-`0.1.0` is the initial release candidate. The repository includes the complete Duo Lab example in `example/`; the npm package contains the reusable library and config plugin.
+`0.1.0-preview.1` is the first developer preview, intended for evaluation and feedback rather than a stable compatibility promise. Its npm channel is `next`, not `latest`; APIs and integration details may change before a stable release. See the [preview release notes](./RELEASE_NOTES.md) for highlights, requirements, and limitations. The repository includes the complete Duo Lab example in `example/`; the npm package contains the reusable library and config plugin.
 
 The package exposes small, typed React components and hooks for Duo-aware layout, live hinge and reserved-region data, UIKit's adaptive vertical toolbar, companion scene accessories, and the inner/outer camera system. The same components remain safe to render on Android, web, older iOS versions, and non-Duo iPhones through documented fallbacks.
 
@@ -36,10 +36,10 @@ Every API is fully typed. You can use the package with Expo development builds o
 
 The package covers the core Duo surfaces, but it does not yet expose every SwiftUI behavior:
 
-- It cannot create a second independent React Native `WindowGroup` or coordinate two separately rendered React Native scene sessions.
+- Independent React Native windows and coordination between separately rendered scene sessions are not yet implemented. `WindowGroup` is a SwiftUI API; an equivalent React Native feature would require native scene hosting and lifecycle integration, not a JavaScript setting. This is a current package boundary, not a claim that such support is impossible.
 - `arrangement="automatic"` uses UIKit's default `UISplitArrangement` sizing with both axes allowed. UIKit does not expose SwiftUI's `automaticArrangement` policy, so the package does not promise identical policy decisions in every window geometry.
 - Camera support provides preview and device controls, but does not capture photos, record video, or return frames to JavaScript.
-- Scene accessory content is declarative native text/symbol content; it cannot render a separate React tree.
+- Scene accessory content currently supports declarative native text/symbol content, not a separate React tree.
 - Vertical-bar opt-out applies to this package's controls. The app's root controller separately owns the window-wide status-bar axis.
 
 These are API gaps, not silent fallbacks. Components report support and live native state so an app can explain or disable unavailable behavior.
@@ -58,21 +58,23 @@ The package's iOS deployment target follows the host React Native app. Runtime a
 
 ## Install
 
-For an unpublished build, run `yarn pack:check` and then `npm pack --ignore-scripts` in this repository. Install the resulting `.tgz` file in your app with `npm install /absolute/path/to/package.tgz` and rebuild its native development client. This tests the actual distribution without publishing it.
+Until the first publication, run `yarn pack:check` and then `npm pack --ignore-scripts` in this repository. Install the resulting `.tgz` file in your app with `npm install /absolute/path/to/package.tgz` and rebuild its native development client. This tests the actual distribution without publishing it. See the [maintainer publication steps](./CONTRIBUTING.md#first-publication-and-npm-setup).
 
-Choose the command used by your app:
+After publication, explicitly opt into the preview channel with the command used by your app:
 
 ```sh
-npm install @cawrestler/react-native-duo
+npm install @cawrestler/react-native-duo@next
 ```
 
 ```sh
-yarn add @cawrestler/react-native-duo
+yarn add @cawrestler/react-native-duo@next
 ```
 
 ```sh
-pnpm add @cawrestler/react-native-duo
+pnpm add @cawrestler/react-native-duo@next
 ```
+
+To reproduce this preview exactly, use `@cawrestler/react-native-duo@0.1.0-preview.1` instead of `@next`. Preview evaluation requires a native rebuild; this is not an Expo Go or JavaScript-only update.
 
 ### Expo
 
@@ -294,7 +296,7 @@ Choose `automatic` to let UIKit's default split arrangement pick its sizing with
 
 ## Adaptive vertical toolbar
 
-In automatic mode, `DuoAdaptiveToolbar` hosts your content in a real `UITabBarController` and navigation-controller hierarchy. UIKit can therefore combine tabs and tools into its vertical bar instead of imitating that layout in React Native. The component reads the system's unobscured content guide and applies those insets through a package-owned React wrapper, so React Native reflows before a trailing or leading rail instead of drawing beneath it.
+In automatic mode, `DuoAdaptiveToolbar` hosts your content in a real `UITabBarController` and navigation-controller hierarchy. UIKit can therefore combine tabs and tools into its vertical bar instead of imitating that layout in React Native. By default, the component reads the system's unobscured content area and applies its insets through a package-owned React wrapper, so React Native reflows before a trailing or leading rail instead of drawing beneath it. Full-width backgrounds and immersive content can opt out of that inset, as described below.
 
 ```tsx
 <DuoAdaptiveToolbar
@@ -380,6 +382,54 @@ When a vertical bar and tabs are both active, the package places every app actio
 `compressionBehavior` is a constrained-space preference, not an instruction to hide a bar unconditionally. `automatic` prefers tabs on iOS, `preferTabBar` compresses app actions first, and `preferBarItems` compresses tabs first. UIKit can keep both groups visible when there is enough room; their exact appearance depends on the available height and system version.
 
 The system, not the package, chooses whether a vertical bar is appropriate. A regular portrait phone may correctly remain horizontal.
+
+### Full-width backgrounds and content
+
+Choose the layout for your content, independently of the bar axis:
+
+- `contentLayout="safeArea"` (default): keeps children clear of visible app bars and the system safe area. Use this for lists, forms, and normal interactive screens.
+- `background={<YourBackground />}`: fills the entire toolbar host behind both the content and native bars, without changing the children's safe layout. This slot is decorative: it ignores touches and is hidden from accessibility.
+- `contentLayout="edgeToEdge"`: lets children fill the entire host. Use this for an immersive, non-scrolling canvas or a layout that explicitly positions its own safe controls. It can draw underneath visible bars, status indicators, and the camera area.
+
+For a normal screen, let the background extend behind the bars while keeping readable content and controls in the safe area. This follows Apple's separation of [full-bleed backgrounds](https://developer.apple.com/documentation/swiftui/adding-a-background-to-your-view) from [unobscured foreground content](https://developer.apple.com/documentation/uikit/positioning-content-relative-to-the-safe-area). Switching the foreground to `edgeToEdge` is an explicit immersive-layout choice, not a prerequisite for filling the background.
+
+For a full-bleed background with safely laid-out foreground content:
+
+```tsx
+<DuoAdaptiveToolbar
+  title="Project"
+  items={toolbarItems}
+  background={<View style={{ flex: 1, backgroundColor: '#EEEAFD' }} />}
+>
+  <ProjectList />
+</DuoAdaptiveToolbar>
+```
+
+For a truly bar-free, full-width canvas, hide **all** app chrome, not just the navigation title:
+
+```tsx
+const [toolbarState, setToolbarState] = useState<DuoToolbarState>();
+
+<DuoAdaptiveToolbar
+  items={[]}
+  showsNavigationBar={false}
+  contentLayout="edgeToEdge"
+  onStateChange={setToolbarState}
+>
+  <Canvas />
+  {/* Protect important controls using measured insets or local regions. */}
+</DuoAdaptiveToolbar>
+```
+
+`items={[]}` removes tools and tabs; `showsNavigationBar={false}` removes navigation chrome. When those bars are absent, the native package no longer invents an app-rail margin. The system can still reserve an edge for status/camera areas, so a bar-free screen in `safeArea` mode is not necessarily full width. `verticalBehavior="disabled"` only switches app bars to a horizontal layout; it is not a full-width setting.
+
+`onStateChange` continues to report the unobscured `contentInsets` and full host `contentSize` in **both** content modes. In `edgeToEdge`, use those insets to position important controls while allowing decorative content underneath. In `safeArea`, the package already applies those insets—do not apply them to the same children again. The `contentInsets` measurement does not become zero just because you opt out of applying it.
+
+Insets describe a conservative rectangle. When an immersive screen needs more precise control placement around a localized camera area or an interior division, measure `DuoGeometryView` in the same local coordinate space and inspect its active reserved-region frames. Those frames already include region margins; do not add the margins again. Choosing which unobscured lane can hold your controls remains an application layout decision—the package does not provide a general collision solver.
+
+“Entire host” means the bounds you give `DuoAdaptiveToolbar`, not automatically the physical display. A parent `SafeAreaView`, padding, sidebar, or split pane can still make that host smaller. To fill a window, give the host `flex: 1` without an outer safe-area inset, then protect foreground controls inside it. Avoid overriding the content wrapper's frame through `contentStyle`. On Android/web, the fallback stays horizontal and reports only its own visible bar heights; your app remains responsible for device/system safe-area protection there.
+
+The example keeps ordinary **Adaptive Bars** content safe while its grouped background fills the entire host. **More → Full-width canvas** (or **Open canvas experiment**) opens **Duo Studio**: a calm Day/Dusk/Night landscape that starts edge-to-edge with every app bar hidden. **Canvas options** lets you compare layouts, restore bars, and enable the normally hidden layout diagnostics. Its exit/options controls use local reserved regions, with measured native/hardware insets as a fallback. **Back to Workbench** restores safe content and the bars; selecting a visible tab also exits. See the [example guide](example/README.md#full-width-canvas-experiment) for the walkthrough. These demo choices do not change the package's `safeArea` default. Rebuild your native development app after updating this package; a JavaScript reload alone will not include the native spacing and touch-routing fixes.
 
 ## Duo cameras and smart framing
 
@@ -538,13 +588,15 @@ Each pane in `DuoArrangementState` reports `zIndex`, `splitAxis`, and `isHidden`
 
 | Prop | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `children` | `ReactNode` | required | Content hosted inside the system's unobscured tab/navigation layout area. |
+| `children` | `ReactNode` | required | Content hosted in the unobscured area by default, or the full host in `edgeToEdge` mode. |
 | `items` | `DuoToolbarItem[]` | required | Native tabs, navigation actions, toolbar actions, and menus. |
 | `title` | `string` | — | Navigation title when the navigation bar is shown. |
 | `tintColor` | `string` | system default | `#RRGGBB` or `#RRGGBBAA` color for native bar controls/selected tabs and fallback action labels. |
 | `verticalBehavior` | `automatic \| disabled` | `automatic` | Uses adaptive UIKit controllers or component-local native horizontal bars, without changing the app's status-bar axis. |
 | `compressionBehavior` | `automatic \| preferBarItems \| preferTabBar` | `automatic` | Chooses what UIKit preserves when vertical space is constrained. |
 | `showsNavigationBar` | `boolean` | `true` | Shows or hides the navigation title bar. |
+| `contentLayout` | `safeArea \| edgeToEdge` | `safeArea` | Applies unobscured content insets or fills the host; does not hide bars or change reported insets. |
+| `background` | `ReactNode` | — | Decorative, non-interactive full-host layer behind content and native bars. |
 | `onItemPress` | `(id: string) => void` | — | Receives the selected item ID. |
 | `onStateChange` | `(state: DuoToolbarState) => void` | — | Reports native mode, vertical placement, edge, content insets, and native host size. |
 | `style` | `ViewProps['style']` | — | Styles the native toolbar host. |
@@ -568,9 +620,9 @@ Every `DuoToolbarItem` supports:
 
 Each `DuoToolbarMenuItem` has an `id`, `title`, optional `systemImage`, and optional `disabled` flag. Selecting it calls `onItemPress` with that menu item's ID.
 
-`DuoToolbarState` contains `native`, `verticalBarEdge`, `isVertical`, `contentInsets`, and optional `contentSize`. `verticalBarEdge` reports the preferred system trait, which can remain `leading` or `trailing` while this component's horizontal opt-out is active. Use `isVertical` for the actual axis of this toolbar's controls. The component already applies `contentInsets` internally; the values are exposed for diagnostics and for coordinating content rendered outside the toolbar host.
+`DuoToolbarState` contains `native`, `verticalBarEdge`, `isVertical`, `contentInsets`, and optional `contentSize`. `verticalBarEdge` reports the preferred system trait, which can remain `leading` or `trailing` while this component's horizontal opt-out is active. Use `isVertical` for the host's bar-layout axis, not as a visibility flag: that axis can remain vertical when you remove every app bar. The component applies `contentInsets` internally only in `safeArea` mode. The reported values remain available in either mode for diagnostics and for placing foreground controls safely.
 
-`contentSize` is the actual native host's `{ width, height }` in points, before those insets are applied. The package uses it to explicitly size React content when a fold or window resize changes the native viewport—even when the insets stay unchanged—so stale Fabric/Yoga dimensions cannot place content beneath the rail. Newly built native clients provide this field; older binaries without it retain inset-only sizing and must be rebuilt to receive the viewport-resizing fix.
+`contentSize` is the actual host's `{ width, height }` in points, before those insets are applied; the Android/web fallback also reports its measured host size. On iOS, the package uses it to explicitly size React content when a fold or window resize changes the native viewport—even when the insets stay unchanged—so stale Fabric/Yoga dimensions cannot place content beneath the rail. Newly built native clients provide this field; older binaries without it retain inset-only sizing and must be rebuilt to receive the viewport-resizing fix.
 
 ### `DuoCameraView`
 
@@ -750,6 +802,7 @@ This repository includes its own `yarn.lock`. Run Yarn from the repository root 
 
 - [Development and release workflow](./CONTRIBUTING.md)
 - [Changelog](./CHANGELOG.md)
+- [Preview release notes](./RELEASE_NOTES.md)
 - [Issue tracker](https://github.com/CAWRESTLER/react-native-duo/issues)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 
@@ -759,7 +812,7 @@ Develop on feature branches and open pull requests to `main`. Dependency install
 
 Run `yarn validate` to check lint, library/example types, repository/release safeguards, library tests, and the built npm tarball. The distribution check verifies exported entry points, types, native/codegen sources, the podspec, and Expo plugin, and excludes demo/build outputs. Native/device and visual checks remain required before a release.
 
-Prepare version/changelog changes on `codex/release-*` or `release-*` branches and merge them through a pull request. Local `release-it` has automatic commit/tag/push and npm/GitHub publishing disabled. After npm setup, publishing uses the manual **Publish npm** workflow on the exact merged `main` commit with green CI, a deliberate `next`/`latest` choice, testing confirmation, and owner approval of the `npm` environment. The package is currently unpublished; [first-publication authentication and trusted-publisher setup](./CONTRIBUTING.md#first-publication-and-npm-setup) must be completed by its maintainer.
+Prepare version, changelog, and `RELEASE_NOTES.md` changes on `codex/release-*` or `release-*` branches and merge them through a pull request. Local `release-it` has automatic commit/tag/push and npm/GitHub publishing disabled. After npm setup, publishing uses the manual **Publish npm** workflow on the exact merged `main` commit with green CI, a deliberate `next`/`latest` choice, testing confirmation, and owner approval of the `npm` environment. The workflow verifies that the reviewed release-notes heading matches the version and uses that file as the GitHub release body. Preview versions must use `next` and are marked as GitHub prereleases, not latest releases. The package is currently unpublished; [first-publication authentication and trusted-publisher setup](./CONTRIBUTING.md#first-publication-and-npm-setup) must be completed by its maintainer.
 
 ## License
 

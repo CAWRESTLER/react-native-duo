@@ -1,5 +1,6 @@
 import {
   DuoAdaptiveToolbar,
+  type DuoToolbarContentLayout,
   type DuoToolbarItem,
   type DuoToolbarState,
   type DuoVerticalBarCompression,
@@ -14,12 +15,18 @@ import {
   Caption,
   DemoPage,
   LabCard,
+  PrimaryButton,
   SegmentedControl,
   StatusLine,
   Symbol,
   ToggleRow,
   useDuoPalette,
 } from '@/components/duo-ui';
+import {
+  ToolbarCanvas,
+  ToolbarCanvasBackground,
+  type CanvasScene,
+} from './toolbar-canvas';
 
 type Tab = 'workbench' | 'inbox' | 'profile';
 
@@ -39,6 +46,12 @@ export function AdaptiveBarsLab() {
   const [tab, setTab] = useState<Tab>('workbench');
   const [event, setEvent] = useState('Interact with a toolbar item');
   const [toolbarState, setToolbarState] = useState(initialState);
+  const [canvasOpen, setCanvasOpen] = useState(false);
+  const [contentLayout, setContentLayout] =
+    useState<DuoToolbarContentLayout>('safeArea');
+  const [barsHidden, setBarsHidden] = useState(false);
+  const [canvasScene, setCanvasScene] = useState<CanvasScene>('dusk');
+  const [diagnostics, setDiagnostics] = useState(false);
   const items = useMemo<DuoToolbarItem[]>(
     () => [
       ...(navigation.compact
@@ -94,6 +107,11 @@ export function AdaptiveBarsLab() {
         systemImage: 'ellipsis.circle',
         placement: 'overflow',
         menuItems: [
+          {
+            id: 'canvas',
+            title: 'Full-width canvas',
+            systemImage: 'arrow.up.left.and.arrow.down.right',
+          },
           { id: 'scan', title: 'Scan', systemImage: 'doc.viewfinder' },
           { id: 'connect', title: 'Connect', systemImage: 'link' },
           { id: 'export', title: 'Export', systemImage: 'square.and.arrow.up' },
@@ -125,12 +143,25 @@ export function AdaptiveBarsLab() {
     [tab, navigation.compact]
   );
 
+  const openCanvas = () => {
+    setContentLayout('edgeToEdge');
+    setBarsHidden(true);
+    setDiagnostics(false);
+    setCanvasOpen(true);
+  };
+
   const onPress = (id: string) => {
+    if (id === 'canvas') {
+      openCanvas();
+      return;
+    }
     if (id === 'navigation') {
       navigation.showNavigation();
       return;
     }
     if (id === 'workbench' || id === 'inbox' || id === 'profile') {
+      setCanvasOpen(false);
+      setBarsHidden(false);
       setTab(id);
       return;
     }
@@ -152,23 +183,54 @@ export function AdaptiveBarsLab() {
 
   return (
     <DuoAdaptiveToolbar
+      background={
+        canvasOpen ? (
+          <ToolbarCanvasBackground
+            diagnostics={diagnostics}
+            scene={canvasScene}
+          />
+        ) : (
+          <View style={[styles.root, { backgroundColor: palette.grouped }]} />
+        )
+      }
       compressionBehavior={compression}
+      contentLayout={canvasOpen ? contentLayout : 'safeArea'}
       items={
-        tab === 'workbench'
-          ? items
-          : items.filter(
-              (item) => item.placement === 'tab' || item.id === 'navigation'
-            )
+        canvasOpen && barsHidden
+          ? []
+          : tab === 'workbench'
+            ? items
+            : items.filter(
+                (item) => item.placement === 'tab' || item.id === 'navigation'
+              )
       }
       onItemPress={onPress}
       onStateChange={setToolbarState}
-      showsNavigationBar
+      showsNavigationBar={!canvasOpen || !barsHidden}
       style={styles.root}
       title="Adaptive Bars"
       tintColor={palette.indigo}
       verticalBehavior={verticalDisabled ? 'disabled' : 'automatic'}
     >
-      {tab === 'workbench' ? (
+      {canvasOpen ? (
+        <ToolbarCanvas
+          barsHidden={barsHidden}
+          contentLayout={contentLayout}
+          diagnostics={diagnostics}
+          onBarsHiddenChange={setBarsHidden}
+          onContentLayoutChange={setContentLayout}
+          onDiagnosticsChange={setDiagnostics}
+          onSceneChange={setCanvasScene}
+          onExit={() => {
+            setCanvasOpen(false);
+            setBarsHidden(false);
+            setContentLayout('safeArea');
+            setTab('workbench');
+          }}
+          toolbarState={toolbarState}
+          scene={canvasScene}
+        />
+      ) : tab === 'workbench' ? (
         <DemoPage
           subtitle="Watch tabs and tools move to the vertical axis"
           symbol="sidebar.right"
@@ -224,6 +286,25 @@ export function AdaptiveBarsLab() {
               title="Priority and overflow"
               detail="visibilityPriority and native menuItems"
             />
+          </LabCard>
+
+          <LabCard
+            symbol="arrow.up.left.and.arrow.down.right"
+            title="Full-width canvas"
+          >
+            <BodyText secondary>
+              Explore an immersive landscape with no app bars. Open Options to
+              compare safe-area and edge-to-edge content or show diagnostics.
+            </BodyText>
+            <PrimaryButton
+              label="Open canvas experiment"
+              onPress={openCanvas}
+              symbol="arrow.up.left.and.arrow.down.right"
+            />
+            <Caption>
+              System status and camera areas remain. Full width means this
+              toolbar host, not the sidebar or the entire device.
+            </Caption>
           </LabCard>
         </DemoPage>
       ) : (

@@ -2,7 +2,10 @@ import { describe, expect, it } from '@jest/globals';
 
 import { defaultDuoEnvironment } from '../context';
 import { parseNativePayload } from '../native/events';
-import { resolveToolbarContentFrame } from '../native/layout';
+import {
+  resolveToolbarContentFrame,
+  resolveToolbarLayoutInsets,
+} from '../native/layout';
 
 describe('resolveToolbarContentFrame', () => {
   const railInsets = { top: 82, right: 84, bottom: 0, left: 0 };
@@ -35,15 +38,79 @@ describe('resolveToolbarContentFrame', () => {
     ).toEqual({ x: 0, y: 44, width: 450, height: 544 });
   });
 
+  it('preserves the safe layout as the default and fills the host only when opted in', () => {
+    const size = { width: 450, height: 688 };
+    expect(resolveToolbarContentFrame(size, railInsets, 'safeArea')).toEqual(
+      resolveToolbarContentFrame(size, railInsets)
+    );
+    expect(resolveToolbarContentFrame(size, railInsets, 'edgeToEdge')).toEqual({
+      x: 0,
+      y: 0,
+      width: 450,
+      height: 688,
+    });
+    // Native diagnostics remain intact for positioning foreground controls.
+    expect(railInsets).toEqual({ top: 82, right: 84, bottom: 0, left: 0 });
+  });
+
+  it.each([
+    { top: 82, right: 84, bottom: 0, left: 0 },
+    { top: 82, right: 0, bottom: 0, left: 84 },
+    { top: 44, right: 0, bottom: 100, left: 0 },
+  ])(
+    'does not reserve either bar axis in an edge-to-edge canvas: %p',
+    (insets) => {
+      expect(
+        resolveToolbarContentFrame(
+          { width: 654, height: 688 },
+          insets,
+          'edgeToEdge'
+        )
+      ).toEqual({ x: 0, y: 0, width: 654, height: 688 });
+    }
+  );
+
+  it('applies the selected inset policy before native viewport measurements arrive', () => {
+    expect(resolveToolbarLayoutInsets(railInsets)).toBe(railInsets);
+    expect(resolveToolbarLayoutInsets(railInsets, 'edgeToEdge')).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+  });
+
+  it('recalculates the full-width canvas across folding and restoring the safe mode', () => {
+    for (const width of [654, 450, 654]) {
+      expect(
+        resolveToolbarContentFrame(
+          { width, height: 688 },
+          railInsets,
+          'edgeToEdge'
+        )
+      ).toEqual({ x: 0, y: 0, width, height: 688 });
+      expect(
+        resolveToolbarContentFrame(
+          { width, height: 688 },
+          railInsets,
+          'safeArea'
+        )
+      ).toEqual({ x: 0, y: 82, width: width - 84, height: 606 });
+    }
+  });
+
   it.each([
     undefined,
     { width: 0, height: 688 },
     { width: 450, height: 0 },
     { width: Number.NaN, height: 688 },
     { width: 450, height: Number.POSITIVE_INFINITY },
-  ])('waits for valid native bounds: %p', (size) =>
-    expect(resolveToolbarContentFrame(size, railInsets)).toBeNull()
-  );
+  ])('waits for valid native bounds in both modes: %p', (size) => {
+    expect(resolveToolbarContentFrame(size, railInsets)).toBeNull();
+    expect(
+      resolveToolbarContentFrame(size, railInsets, 'edgeToEdge')
+    ).toBeNull();
+  });
 
   it('sanitizes invalid insets and avoids an empty content rectangle', () => {
     expect(

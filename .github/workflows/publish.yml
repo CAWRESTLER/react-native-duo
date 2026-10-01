@@ -50,7 +50,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Check exact-commit CI, release version, and testing confirmation
+      - name: Check exact-commit CI, release version, reviewed notes, and testing confirmation
         env:
           GH_TOKEN: ${{ github.token }}
           DIST_TAG: ${{ inputs.dist_tag }}
@@ -125,6 +125,6 @@ jobs:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
           RELEASE_SHA: ${{ github.sha }}
         run: |
-          release_args=("$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TAG" --generate-notes)
-          if [[ "$RELEASE_VERSION" == *-* ]]; then release_args+=(--prerelease); fi
+          release_args=("$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TAG" --notes-file RELEASE_NOTES.md)
+          if [[ "$RELEASE_VERSION" == *-* ]]; then release_args+=(--prerelease --latest=false); fi
           gh release create "${release_args[@]}"
