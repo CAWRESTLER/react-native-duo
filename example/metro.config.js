@@ -1,8 +1,4 @@
-const path = require('path');
-const { getDefaultConfig } = require('@expo/metro-config');
-const { withMetroConfig } = require('react-native-monorepo-config');
-
-const root = path.resolve(__dirname, '..');
+const { getDefaultConfig } = require('expo/metro-config');
 
 /**
  * Metro configuration
@@ -10,10 +6,13 @@ const root = path.resolve(__dirname, '..');
  *
  * @type {import('metro-config').MetroConfig}
  */
-const config = withMetroConfig(getDefaultConfig(__dirname), {
-  root,
-  dirname: __dirname,
-  conditions: ['cawrestler-react-native-duo-source'],
-});
+const config = getDefaultConfig(__dirname);
+
+// Expo configures workspace resolution; this condition selects the package's
+// live TypeScript source so editing the library updates the lab immediately.
+config.resolver.unstable_conditionNames = [
+  'cawrestler-react-native-duo-source',
+  ...(config.resolver.unstable_conditionNames ?? []),
+];
 
 module.exports = config;

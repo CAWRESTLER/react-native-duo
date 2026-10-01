@@ -15,6 +15,11 @@ export function DuoProvider({
       ...defaultDuoEnvironment,
       platform:
         Platform.OS === 'android' ? ('android' as const) : ('web' as const),
+      geometry: {
+        ...defaultDuoEnvironment.geometry,
+        width: window.width,
+        height: window.height,
+      },
       window: {
         width: window.width,
         height: window.height,

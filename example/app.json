@@ -4,23 +4,17 @@
     "slug": "react-native-duo-example",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "scheme": "react-native-duo-example",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "cawrestler.reactnativeduo.example"
+      "bundleIdentifier": "dev.cawrestler.reactnativeduo.example"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "package": "cawrestler.reactnativeduo.example"
+      "package": "dev.cawrestler.reactnativeduo.example"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "output": "static"
     },
     "plugins": [
       "expo-router",
@@ -31,14 +25,32 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow React Native Duo Lab to test camera capture and compare available camera APIs.",
+          "microphonePermission": "Allow React Native Duo Lab to use the microphone when recording camera tests.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#5856D6"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "ios": {
-            "enableSceneSupport": true,
             "usePrecompiledModules": false
           }
         }
-      ]
-    ]
+      ],
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

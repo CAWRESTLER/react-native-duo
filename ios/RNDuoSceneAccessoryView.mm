@@ -1,5 +1,6 @@
 #import "RNDuoSceneAccessoryView.h"
 #import "RNDuoUtilities.h"
+#import <QuartzCore/CAGradientLayer.h>
 
 #import <react/renderer/components/ReactNativeDuoViewSpec/ComponentDescriptors.h>
 #import <react/renderer/components/ReactNativeDuoViewSpec/EventEmitters.h>
@@ -7,6 +8,25 @@
 #import <react/renderer/components/ReactNativeDuoViewSpec/RCTComponentViewHelpers.h>
 
 using namespace facebook::react;
+
+static CGFloat RNDuoAccessoryDimension(NSDictionary *content, NSString *key,
+                                      CGFloat fallback, CGFloat minimum, CGFloat maximum)
+{
+  NSNumber *number = [content[key] isKindOfClass:[NSNumber class]] ? content[key] : nil;
+  return number ? MAX(minimum, MIN(maximum, number.doubleValue)) : fallback;
+}
+
+static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
+{
+  return [content[key] isKindOfClass:[NSNumber class]] && [content[key] boolValue];
+}
+
+@interface RNDuoAccessoryBackgroundView : UIView
+@end
+
+@implementation RNDuoAccessoryBackgroundView
++ (Class)layerClass { return CAGradientLayer.class; }
+@end
 
 @interface RNDuoAccessoryContentViewController : UIViewController
 - (instancetype)initWithContent:(NSDictionary *)content;
@@ -24,13 +44,20 @@ using namespace facebook::react;
 
 - (void)loadView
 {
-  UIView *root = [[UIView alloc] init];
+  UIView *root = [[RNDuoAccessoryBackgroundView alloc] init];
   root.backgroundColor = RNDuoColor(_content[@"backgroundColor"], [UIColor colorWithRed:0.04 green:0.08 blue:0.14 alpha:1]);
+  if ([_content[@"gradientEndColor"] isKindOfClass:[NSString class]]) {
+    CAGradientLayer *gradient = (CAGradientLayer *)root.layer;
+    UIColor *end = RNDuoColor(_content[@"gradientEndColor"], root.backgroundColor);
+    gradient.colors = @[ (__bridge id)root.backgroundColor.CGColor, (__bridge id)end.CGColor ];
+    gradient.startPoint = CGPointMake(0, 0);
+    gradient.endPoint = CGPointMake(1, 1);
+  }
 
   UIStackView *stack = [[UIStackView alloc] init];
   stack.axis = UILayoutConstraintAxisVertical;
   stack.alignment = UIStackViewAlignmentCenter;
-  stack.spacing = 14;
+  stack.spacing = RNDuoAccessoryDimension(_content, @"spacing", 14, 0, 100);
   stack.translatesAutoresizingMaskIntoConstraints = NO;
 
   NSString *symbolName = [_content[@"systemImage"] isKindOfClass:[NSString class]] ? _content[@"systemImage"] : @"rectangle.on.rectangle";
@@ -38,26 +65,52 @@ using namespace facebook::react;
   image.contentMode = UIViewContentModeScaleAspectFit;
   image.tintColor = RNDuoColor(_content[@"foregroundColor"], UIColor.whiteColor);
   image.translatesAutoresizingMaskIntoConstraints = NO;
+  CGFloat symbolSize = RNDuoAccessoryDimension(_content, @"symbolSize", 72, 1, 240);
+  image.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:symbolSize];
   [NSLayoutConstraint activateConstraints:@[
-    [image.widthAnchor constraintEqualToConstant:72],
-    [image.heightAnchor constraintEqualToConstant:72],
+    [image.widthAnchor constraintEqualToConstant:symbolSize],
+    [image.heightAnchor constraintEqualToConstant:symbolSize],
   ]];
 
   UILabel *title = [[UILabel alloc] init];
   title.text = [_content[@"title"] isKindOfClass:[NSString class]] ? _content[@"title"] : @"Duo scene";
   title.textColor = RNDuoColor(_content[@"foregroundColor"], UIColor.whiteColor);
   title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];
+  if ([_content[@"titleFontSize"] isKindOfClass:[NSNumber class]]) {
+    title.font = [UIFont boldSystemFontOfSize:RNDuoAccessoryDimension(_content, @"titleFontSize", 34, 1, 160)];
+  }
+  if (RNDuoAccessoryFlag(_content, @"titleRounded")) {
+    UIFontDescriptor *rounded = [title.font.fontDescriptor fontDescriptorWithDesign:UIFontDescriptorSystemDesignRounded];
+    if (rounded) title.font = [UIFont fontWithDescriptor:rounded size:title.font.pointSize];
+  }
   title.textAlignment = NSTextAlignmentCenter;
   title.numberOfLines = 0;
 
   UILabel *subtitle = [[UILabel alloc] init];
   subtitle.text = [_content[@"subtitle"] isKindOfClass:[NSString class]] ? _content[@"subtitle"] : @"";
-  subtitle.textColor = [title.textColor colorWithAlphaComponent:0.72];
+  subtitle.textColor = [title.textColor colorWithAlphaComponent:RNDuoAccessoryDimension(_content, @"subtitleOpacity", 0.72, 0, 1)];
   subtitle.font = [UIFont preferredFontForTextStyle:UIFontTextStyleTitle3];
+  if ([_content[@"subtitleFontSize"] isKindOfClass:[NSNumber class]] || RNDuoAccessoryFlag(_content, @"subtitleSemibold")) {
+    CGFloat size = RNDuoAccessoryDimension(_content, @"subtitleFontSize", subtitle.font.pointSize, 1, 100);
+    subtitle.font = [UIFont systemFontOfSize:size
+                                    weight:RNDuoAccessoryFlag(_content, @"subtitleSemibold") ? UIFontWeightSemibold : UIFontWeightRegular];
+  }
   subtitle.textAlignment = NSTextAlignmentCenter;
   subtitle.numberOfLines = 0;
 
-  [stack addArrangedSubview:image];
+  if (!RNDuoAccessoryFlag(_content, @"hideSymbol")) [stack addArrangedSubview:image];
+  NSString *eyebrow = [_content[@"eyebrow"] isKindOfClass:[NSString class]] ? _content[@"eyebrow"] : @"";
+  if (eyebrow.length) {
+    UILabel *label = [[UILabel alloc] init];
+    label.textAlignment = NSTextAlignmentCenter;
+    label.numberOfLines = 0;
+    label.attributedText = [[NSAttributedString alloc] initWithString:eyebrow attributes:@{
+      NSFontAttributeName: [UIFont boldSystemFontOfSize:12],
+      NSForegroundColorAttributeName: RNDuoColor(_content[@"eyebrowColor"], title.textColor),
+      NSKernAttributeName: @3,
+    }];
+    [stack addArrangedSubview:label];
+  }
   [stack addArrangedSubview:title];
   if (subtitle.text.length) [stack addArrangedSubview:subtitle];
   [root addSubview:stack];

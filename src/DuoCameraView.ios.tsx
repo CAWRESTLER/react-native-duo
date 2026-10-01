@@ -7,6 +7,9 @@ import type { DuoCameraViewProps, DuoCameraViewState } from './types';
 export function DuoCameraView({
   location = 'outer',
   direction,
+  source,
+  dynamicAspectRatio,
+  sensorOrientationCompensation = true,
   active = true,
   requestPermission = false,
   mirrored = false,
@@ -24,10 +27,16 @@ export function DuoCameraView({
         permission: 'undetermined',
         location,
         direction: direction ?? null,
+        source: source ?? null,
         forwardCameraIds: [],
         backwardCameraIds: [],
         deviceId: null,
         deviceName: null,
+        previewRotation: null,
+        sensorCompensationSupported: false,
+        sensorCompensationDisabled: false,
+        aspectRatios: [],
+        selectedAspectRatio: null,
         smartFraming: {
           supported: false,
           monitoring: false,
@@ -38,13 +47,16 @@ export function DuoCameraView({
       };
       onStateChange?.(parseNativePayload(nativeEvent.payload, fallback));
     },
-    [direction, location, onStateChange, smartFraming]
+    [direction, location, onStateChange, smartFraming, source]
   );
 
   return (
     <NativeDuoCameraView
       location={location}
       direction={direction}
+      cameraSource={source}
+      dynamicAspectRatio={dynamicAspectRatio}
+      sensorOrientationCompensation={sensorOrientationCompensation}
       active={active}
       requestPermission={requestPermission}
       mirrored={mirrored}

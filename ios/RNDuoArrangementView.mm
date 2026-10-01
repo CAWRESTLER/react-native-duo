@@ -25,10 +25,37 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   return NSDirectionalRectEdgeTrailing;
 }
 
+@interface RNDuoArrangementPaneView : UIView
+@property (nonatomic, weak) UIView *mountedChild;
+@property (nonatomic, copy) void (^onLayout)(void);
+@end
+
+@implementation RNDuoArrangementPaneView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    self.backgroundColor = UIColor.clearColor;
+    self.clipsToBounds = YES;
+  }
+  return self;
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  self.mountedChild.frame = self.bounds;
+  if (self.onLayout) self.onLayout();
+}
+
+@end
+
 @implementation RNDuoArrangementView {
   UIArrangementViewController *_arrangementController API_AVAILABLE(ios(27.1));
   UIViewController *_primaryController;
   UIViewController *_secondaryController;
+  RNDuoArrangementPaneView *_primaryContainer;
+  RNDuoArrangementPaneView *_secondaryContainer;
   UIView *_fallbackContainer;
   UIView<RCTComponentViewProtocol> *_primaryChild;
   UIView<RCTComponentViewProtocol> *_secondaryChild;
@@ -58,8 +85,14 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
     _animated = YES;
     _primaryController = [[UIViewController alloc] init];
     _secondaryController = [[UIViewController alloc] init];
-    _primaryController.view.backgroundColor = UIColor.clearColor;
-    _secondaryController.view.backgroundColor = UIColor.clearColor;
+    _primaryContainer = [[RNDuoArrangementPaneView alloc] init];
+    _secondaryContainer = [[RNDuoArrangementPaneView alloc] init];
+    _primaryController.view = _primaryContainer;
+    _secondaryController.view = _secondaryContainer;
+    __weak __typeof(self) weakSelf = self;
+    _primaryContainer.onLayout = ^{ [weakSelf emitStateIfNeeded]; };
+    _secondaryContainer.onLayout = ^{ [weakSelf emitStateIfNeeded]; };
+    self.clipsToBounds = YES;
 
     if (@available(iOS 27.1, *)) {
       _arrangementController = [[UIArrangementViewController alloc] init];
@@ -67,6 +100,8 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
                                    forPlacement:UIArrangementViewControllerViewPlacementPrimary];
       [_arrangementController setViewController:_secondaryController
                                    forPlacement:UIArrangementViewControllerViewPlacementSecondary];
+      _arrangementController.view.clipsToBounds = YES;
+      _arrangementController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
       self.contentView = _arrangementController.view;
       [self applyNativeArrangement];
     } else {
@@ -102,7 +137,14 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
     [_arrangementController updateArrangement:overlay animated:_animated];
   } else {
     UISplitArrangement *split = [UISplitArrangement splitArrangement];
-    split.axes = RNDuoAxes(_axes);
+    split.axes = [_arrangement isEqualToString:@"automatic"] ? UIAxisBoth : RNDuoAxes(_axes);
+    if ([_arrangement isEqualToString:@"automatic"]) {
+      // UIKit's default dimensions and axis selection choose the native split
+      // policy. No JavaScript hinge-angle heuristics are involved.
+      [_arrangementController updateArrangement:split animated:_animated];
+      dispatch_async(dispatch_get_main_queue(), ^{ [self emitStateIfNeeded]; });
+      return;
+    }
     UISplitArrangementViewProperties *primary = split.defaultViewProperties;
     primary.width.preferred = [UISplitArrangementDimension fractionalDimension:_primaryFraction];
     primary.height.preferred = [UISplitArrangementDimension fractionalDimension:_primaryFraction];
@@ -150,14 +192,27 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
     destination = index == 0 ? _primaryController.view : _secondaryController.view;
   }
   [destination insertSubview:childComponentView atIndex:MIN(index, destination.subviews.count)];
+  childComponentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  childComponentView.frame = destination.bounds;
+  if (index == 0) {
+    _primaryContainer.mountedChild = childComponentView;
+  } else if (index == 1) {
+    _secondaryContainer.mountedChild = childComponentView;
+  }
   [self setNeedsLayout];
 }
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
   [childComponentView removeFromSuperview];
-  if (childComponentView == _primaryChild) _primaryChild = nil;
-  if (childComponentView == _secondaryChild) _secondaryChild = nil;
+  if (childComponentView == _primaryChild) {
+    _primaryContainer.mountedChild = nil;
+    _primaryChild = nil;
+  }
+  if (childComponentView == _secondaryChild) {
+    _secondaryContainer.mountedChild = nil;
+    _secondaryChild = nil;
+  }
 }
 
 - (void)layoutSubviews
@@ -167,6 +222,8 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
     _arrangementController.view.frame = self.bounds;
     _primaryChild.frame = _primaryController.view.bounds;
     _secondaryChild.frame = _secondaryController.view.bounds;
+    [_primaryContainer setNeedsLayout];
+    [_secondaryContainer setNeedsLayout];
   } else {
     [self layoutFallback];
   }
@@ -204,15 +261,26 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
 
 - (NSDictionary *)paneState:(BOOL)primary
 {
+  UIView *pane = primary ? _primaryContainer : _secondaryContainer;
+  CGRect frame = [self convertRect:pane.bounds fromView:pane];
+  if (@available(iOS 27.1, *)) {
+    // Native arrangement owns the frame; the reported size lets Yoga reflow
+    // descendants to it instead of retaining the host's old full width.
+  } else {
+    frame = primary ? _primaryChild.frame : _secondaryChild.frame;
+  }
+  NSDictionary *frameValue = @{ @"x": @(frame.origin.x), @"y": @(frame.origin.y),
+      @"width": @(frame.size.width), @"height": @(frame.size.height) };
   if (@available(iOS 27.1, *)) {
     UIArrangementViewState *state = [_arrangementController stateForPlacement:primary
         ? UIArrangementViewControllerViewPlacementPrimary
         : UIArrangementViewControllerViewPlacementSecondary];
     if (state) {
-      return @{ @"zIndex": @(state.zIndex), @"splitAxis": RNDuoAxisName(state.splitAxis), @"isHidden": @(state.isHidden) };
+      return @{ @"frame": frameValue, @"zIndex": @(state.zIndex), @"splitAxis": RNDuoAxisName(state.splitAxis), @"isHidden": @(state.isHidden) };
     }
   }
   return @{
+    @"frame": frameValue,
     @"zIndex": @((!primary && [_arrangement isEqualToString:@"overlay"]) ? 1 : 0),
     @"splitAxis": @"none",
     @"isHidden": @NO,
@@ -242,6 +310,8 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   _lastPayload = nil;
   _primaryChild = nil;
   _secondaryChild = nil;
+  _primaryContainer.mountedChild = nil;
+  _secondaryContainer.mountedChild = nil;
 }
 
 @end

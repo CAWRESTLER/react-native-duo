@@ -60,11 +60,15 @@ UIColor *RNDuoColor(NSString *_Nullable value, UIColor *fallback)
   if (![value isKindOfClass:[NSString class]]) return fallback;
   NSString *hex = [[value stringByReplacingOccurrencesOfString:@"#" withString:@""] uppercaseString];
   if (hex.length != 6 && hex.length != 8) return fallback;
+  NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789ABCDEF"] invertedSet];
+  if ([hex rangeOfCharacterFromSet:invalid].location != NSNotFound) return fallback;
   unsigned long long raw = 0;
   if (![[NSScanner scannerWithString:hex] scanHexLongLong:&raw]) return fallback;
-  CGFloat alpha = hex.length == 8 ? ((raw >> 24) & 0xFF) / 255.0 : 1.0;
-  CGFloat red = ((raw >> (hex.length == 8 ? 16 : 16)) & 0xFF) / 255.0;
-  CGFloat green = ((raw >> 8) & 0xFF) / 255.0;
-  CGFloat blue = (raw & 0xFF) / 255.0;
+  // Match React Native/CSS #RRGGBBAA rather than native integer AARRGGBB.
+  CGFloat alpha = hex.length == 8 ? (raw & 0xFF) / 255.0 : 1.0;
+  unsigned long long rgb = hex.length == 8 ? raw >> 8 : raw;
+  CGFloat red = ((rgb >> 16) & 0xFF) / 255.0;
+  CGFloat green = ((rgb >> 8) & 0xFF) / 255.0;
+  CGFloat blue = (rgb & 0xFF) / 255.0;
   return [UIColor colorWithRed:red green:green blue:blue alpha:alpha];
 }

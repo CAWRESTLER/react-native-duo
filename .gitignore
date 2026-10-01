@@ -72,6 +72,8 @@ android/keystores/debug.keystore
 # Expo
 .expo/
 example/dist/
+example/ios/
+example/android/
 
 # Turborepo
 .turbo/

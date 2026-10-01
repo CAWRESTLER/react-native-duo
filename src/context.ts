@@ -6,6 +6,16 @@ export const defaultDuoEnvironment: DuoEnvironment = {
   supportsDuoApis: false,
   isDuo: false,
   platform: 'unknown',
+  horizontalSizeClass: 'unspecified',
+  verticalSizeClass: 'unspecified',
+  supportsMultipleWindows: false,
+  geometry: {
+    native: false,
+    width: 0,
+    height: 0,
+    safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
+    reservedRegions: [],
+  },
   hinge: {
     available: false,
     status: 'unavailable',

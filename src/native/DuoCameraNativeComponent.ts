@@ -7,6 +7,9 @@ import {
 export interface NativeDuoCameraProps extends ViewProps {
   location?: string;
   direction?: string;
+  cameraSource?: string;
+  dynamicAspectRatio?: string;
+  sensorOrientationCompensation?: boolean;
   active?: boolean;
   requestPermission?: boolean;
   mirrored?: boolean;

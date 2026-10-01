@@ -6,6 +6,7 @@ import type { DuoCameraViewProps } from './types';
 export function DuoCameraView({
   location = 'outer',
   direction,
+  source,
   smartFraming = 'off',
   onStateChange,
   style,
@@ -18,10 +19,16 @@ export function DuoCameraView({
       permission: 'undetermined',
       location,
       direction: direction ?? null,
+      source: source ?? null,
       forwardCameraIds: [],
       backwardCameraIds: [],
       deviceId: null,
       deviceName: null,
+      previewRotation: null,
+      sensorCompensationSupported: false,
+      sensorCompensationDisabled: false,
+      aspectRatios: [],
+      selectedAspectRatio: null,
       smartFraming: {
         supported: false,
         monitoring: false,
@@ -30,6 +37,6 @@ export function DuoCameraView({
       },
       error: null,
     });
-  }, [direction, location, onStateChange, smartFraming]);
+  }, [direction, location, onStateChange, smartFraming, source]);
   return <View style={style} />;
 }

@@ -1,139 +1,90 @@
 # Contributing
 
-Contributions are always welcome, no matter how large or small!
+The repository contains the library at the root and the official Duo Lab RN application in `example/`. Follow the [code of conduct](./CODE_OF_CONDUCT.md) when discussing or contributing changes.
 
-We want this community to be friendly and respectful to each other. Please follow it in all your interactions with the project. Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md).
+## Development
 
-## Development workflow
-
-This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces). It contains the following packages:
-
-- The library package in the root directory.
-- An example app in the `example/` directory.
-
-To get started with the project, make sure you have the correct version of [Node.js](https://nodejs.org/) installed. See the [`.nvmrc`](./.nvmrc) file for the version used in this project.
-
-Run `yarn` in the root directory to install the required dependencies for each package:
+Use the Node version in [`.nvmrc`](./.nvmrc) and the checked-in Yarn version. Install from the repository root:
 
 ```sh
-yarn
+corepack enable
+yarn install --immutable
 ```
 
-> Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development without manually migrating.
-
-The [example app](/example/) demonstrates usage of the library. You need to run it to test any changes you make.
-
-It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Changes to the library's JavaScript code will be reflected in the example app without a rebuild, but native code changes will require a rebuild of the example app.
-
-If you want to use Android Studio or Xcode to edit the native code, first generate the platform projects with `yarn example expo prebuild`. To edit the Objective-C++ files, open `example/ios/ReactNativeDuoLab.xcworkspace` in Xcode and find the source files at `Pods > Development Pods > @cawrestler/react-native-duo`.
-
-To edit the Java or Kotlin files, open `example/android` in Android studio and find the source files at `cawrestler-react-native-duo` under `Android`.
-
-You can use various commands from the root directory to work with the project.
-
-To start the packager:
+The example consumes the local library workspace. JavaScript changes reload through Metro; changes under `ios/`, codegen specifications, or the config plugin require a new development build.
 
 ```sh
 yarn example start
+yarn example ios --device "iPhone Duo"
 ```
 
-To run the example app on Android:
+The native Duo implementation needs Xcode 27.1+, the iOS 27.1 SDK, the New Architecture, and an iPhone Duo simulator or device for hardware behavior. Its runtime availability checks do not make the native source compile with an older SDK. See the [README requirements](./README.md#requirements) for the tested React Native/Expo versions.
+
+After native changes, regenerate and rebuild the example:
+
+```sh
+yarn example:ios:clean --device "iPhone Duo"
+```
+
+`expo prebuild --clean` recreates generated platform projects. Keep manual native experiments in the package's `ios/` source or a config plugin so prebuild can reproduce them. To use Xcode, open the generated `example/ios/*.xcworkspace`; the library appears under the `ReactNativeDuo` development pod.
+
+Other development commands:
 
 ```sh
 yarn example android
-```
-
-To run the example app on iOS:
-
-```sh
-yarn example ios
-```
-
-To confirm that the app is running with the New Architecture, open the React Native DevTools or inspect the Metro/device logs. The native components in this package are Fabric components, so the New Architecture must remain enabled.
-
-The iOS implementation requires Xcode 27.1 and an iOS 27.1 simulator or device. Use the iPhone Duo simulator to exercise the hardware-specific paths.
-
-To run the example app on Web:
-
-```sh
 yarn example web
-```
-
-Make sure your code passes TypeScript:
-
-```sh
+yarn example build:web
 yarn typecheck
-```
-
-To check for linting errors, run the following:
-
-```sh
 yarn lint
+yarn test --runInBand
+yarn example typecheck
+yarn pack:check
 ```
 
-To fix formatting errors, run the following:
+`pack:check` builds the distributable output, extracts a real npm tarball into a temporary directory, validates its entry points/types/native sources, and runs the packed Expo config plugin. It checks that the example application and native build outputs stay out of the npm package. It never publishes anything.
 
-```sh
-yarn lint --fix
-```
+## Validation before a release
 
-Remember to add tests for your change if possible. Run the unit tests by:
+Run `yarn prepublishOnly` and the example's type check. Build the native example with Xcode 27.1+ and verify all seven screens against the Swift lab in Open, partial/Book, and compact poses. Test scrolling, navigation, tab selection, toolbar actions, overflow, arrangement controls, scene accessory registration, and user-triggered camera permission. Camera discovery and accessory availability depend on simulator/device support; record unavailable hardware paths rather than describing them as fully tested.
 
-```sh
-yarn test
-```
+CI checks package lint/types/tests, distribution contents, and example builds on Android, iOS, and web. The iOS job requires a runner image that includes Xcode 27.1; GitHub runner availability is separate from the source code's SDK support. A passing JavaScript distribution check alone does not establish native or visual parity.
 
+## Publishing
 
+The package publishes publicly as `@cawrestler/react-native-duo`. A release also pushes a `v<version>` git tag and creates a matching GitHub release. Setup needed before the first publication:
 
-## Publishing a release
+- Push the reviewed source to `CAWRESTLER/react-native-duo` on GitHub.
+- Confirm the npm account can publish under the `@cawrestler` scope, then authenticate with `npm login` and satisfy npm's publishing authentication requirements.
+- Supply `GITHUB_TOKEN` with access to create repository releases.
+- Work from a clean, current `main` branch and review the [changelog](./CHANGELOG.md).
 
-Releases publish the public `@cawrestler/react-native-duo` package to npm, create a `v<version>` git tag, and create a matching GitHub release. Before the first release:
-
-- Create the `CAWRESTLER/react-native-duo` repository on GitHub and push the `main` branch.
-- Confirm that the npm account belongs to or can publish under the `@cawrestler` organization.
-- Run `npm login` and authenticate GitHub for `release-it` (for example, export a `GITHUB_TOKEN` with repository release access).
-- Protect `main` and require the repository's CI checks before merging.
-
-For every release, start with a clean `main` branch and run:
+Verify the package and inspect the proposed release:
 
 ```sh
 yarn install --immutable
 yarn prepublishOnly
-yarn pack:check
+yarn example typecheck
+yarn release:dry-run --no-increment
+```
+
+The initial version in `package.json` is `0.1.0`. Publish that version using the no-increment flow once the source is committed and all release checks pass:
+
+```sh
+yarn release --no-increment
+```
+
+Subsequent releases increment the version:
+
+```sh
 yarn release patch
 ```
 
-Replace `patch` with `minor`, `major`, or an exact version when appropriate. `release-it` updates `package.json`, commits the change, creates the `v<version>` tag, publishes to npm with public access, pushes the commit/tag, and creates the GitHub release. Do not reuse or delete a published version; publish a new version instead.
+Use `minor`, `major`, or an exact version as appropriate. `release-it` prompts for the version and release operations, updates the package/changelog, commits, tags, publishes to npm with public access, pushes, and creates the GitHub release. `--only-version` means only the version is prompted for and the remaining operations are automated; it is not a preview or version-only edit. Preview operations with `release:dry-run`. See the [release-it documentation](https://github.com/release-it/release-it#interactive-vs-ci-mode).
 
-To inspect the release without changing git, GitHub, or npm, run:
+Do not reuse an already published version. If npm publishing succeeds and a later GitHub step fails, inspect the recorded state before retrying; do not blindly publish again. For an initial SDK preview release, choose a prerelease version and npm `next` tag if the support policy should remain experimental.
 
-```sh
-yarn release patch --dry-run
-```
+The npm tarball includes the native podspec and config plugin. The example lives on GitHub, and the host application installs pods normally; there is no separate CocoaPods registry publication to perform. Nothing in CI publishes automatically.
 
-### Scripts
+## Pull requests
 
-The `package.json` file contains various scripts for common tasks:
-
-- `yarn`: set up the project by installing dependencies.
-- `yarn typecheck`: type-check files with TypeScript.
-- `yarn lint`: lint files with [ESLint](https://eslint.org/).
-- `yarn test`: run unit tests with [Jest](https://jestjs.io/).
-- `yarn prepublishOnly`: run every package gate and build the distributable output.
-- `yarn pack:check`: preview the exact npm tarball contents.
-- `yarn example start`: start the Metro server for the example app.
-- `yarn example android`: run the example app on Android.
-- `yarn example ios`: run the example app on iOS.
-- `yarn example web`: run the example app on Web.
-- `yarn example build:web`: build the example app for Web.
-### Sending a pull request
-
-> **Working on your first pull request?** You can learn how from this _free_ series: [How to Contribute to an Open Source Project on GitHub](https://app.egghead.io/playlists/how-to-contribute-to-an-open-source-project-on-github).
-
-When you're sending a pull request:
-
-- Prefer small pull requests focused on one change.
-- Verify that linters and tests are passing.
-- Review the documentation to make sure it looks good.
-- Follow the pull request template when opening a pull request.
-- For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
+Describe the observable behavior and how you verified it. Include the affected screen and fold pose for UI changes, and note any capability that could only be tested on hardware. Use conventional commit titles (`fix:`, `feat:`, `docs:`, and similar) so release notes can be generated. Keep changes focused and update usage documentation when the public API changes.

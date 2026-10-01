@@ -7,6 +7,7 @@ import {
 export interface NativeDuoToolbarProps extends ViewProps {
   itemsJson: string;
   title?: string;
+  barTintColor?: string;
   verticalBehavior?: string;
   compressionBehavior?: string;
   showsNavigationBar?: boolean;

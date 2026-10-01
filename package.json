@@ -10,17 +10,18 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./app.plugin": "./app.plugin.js",
+    "./app.plugin.js": "./app.plugin.js"
   },
   "files": [
     "src",
     "lib",
     "android",
     "ios",
-    "cpp",
     "*.podspec",
     "app.plugin.js",
-    "react-native.config.js",
+    "CHANGELOG.md",
     "!ios/build",
     "!android/build",
     "!android/gradle",
@@ -37,11 +38,12 @@
     "example:ios:clean": "yarn workspace @cawrestler/react-native-duo-example expo prebuild --clean && yarn workspace @cawrestler/react-native-duo-example ios",
     "clean": "del-cli lib",
     "prepare": "bob build",
-    "prepublishOnly": "yarn lint && yarn typecheck && yarn test --runInBand && yarn prepare",
-    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "yarn lint && yarn typecheck && yarn test --runInBand && yarn pack:check",
+    "pack:check": "yarn prepare && node scripts/check-package.js",
     "typecheck": "tsc",
     "test": "jest",
-    "release": "release-it --only-version",
+    "release": "release-it",
+    "release:dry-run": "release-it --dry-run",
     "lint": "eslint \"**/*.{js,ts,tsx}\""
   },
   "keywords": [
@@ -73,20 +75,21 @@
     "@eslint/js": "^9.39.5",
     "@expo/config-plugins": "57.0.9",
     "@jest/globals": "^29.7.0",
-    "@react-native/babel-preset": "0.86.3",
-    "@react-native/eslint-config": "0.86.3",
-    "@react-native/jest-preset": "0.86.3",
+    "@react-native/babel-preset": "0.88.0-rc.1",
+    "@react-native/eslint-config": "0.88.0-rc.1",
+    "@react-native/jest-preset": "0.88.0-rc.1",
     "@release-it/conventional-changelog": "^12.0.0",
-    "@types/react": "^19.2.0",
+    "@types/react": "~19.3.0",
     "del-cli": "^7.0.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-ft-flow": "^3.0.11",
     "eslint-plugin-prettier": "^5.5.6",
+    "hermes-eslint": "^0.37.0",
     "jest": "^29.7.0",
     "prettier": "^3.9.6",
-    "react": "19.2.3",
-    "react-native": "0.86.3",
+    "react": "19.3.0",
+    "react-native": "0.88.0-rc.1",
     "react-native-builder-bob": "^0.43.1",
     "release-it": "^21.0.1",
     "turbo": "^2.10.8",
@@ -157,7 +160,7 @@
       "customExportConditions": [
         "require",
         "react-native",
-        "<%- project.sourceCondition -%>"
+        "cawrestler-react-native-duo-source"
       ]
     },
     "modulePathIgnorePatterns": [
@@ -168,7 +171,8 @@
   "release-it": {
     "git": {
       "commitMessage": "chore: release ${version}",
-      "tagName": "v${version}"
+      "tagName": "v${version}",
+      "requireBranch": "main"
     },
     "npm": {
       "publish": true
@@ -178,6 +182,7 @@
     },
     "plugins": {
       "@release-it/conventional-changelog": {
+        "infile": "CHANGELOG.md",
         "preset": {
           "name": "angular"
         }

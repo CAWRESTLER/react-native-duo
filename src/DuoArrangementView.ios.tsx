@@ -1,9 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import NativeDuoArrangementView from './native/DuoArrangementNativeComponent';
 import { parseNativePayload, type NativePayloadEvent } from './native/events';
-import type { DuoArrangementState, DuoArrangementViewProps } from './types';
+import type {
+  DuoArrangementState,
+  DuoArrangementViewProps,
+  DuoRect,
+} from './types';
 
 export function DuoArrangementView({
   primary,
@@ -18,6 +22,10 @@ export function DuoArrangementView({
   primaryStyle,
   secondaryStyle,
 }: DuoArrangementViewProps) {
+  const [paneFrames, setPaneFrames] = useState<{
+    primary?: DuoRect;
+    secondary?: DuoRect;
+  }>({});
   const handleStateChange = useCallback(
     ({ nativeEvent }: { nativeEvent: NativePayloadEvent }) => {
       const fallback: DuoArrangementState = {
@@ -26,7 +34,12 @@ export function DuoArrangementView({
         primary: { zIndex: 0, splitAxis: 'none', isHidden: false },
         secondary: { zIndex: 0, splitAxis: 'none', isHidden: false },
       };
-      onStateChange?.(parseNativePayload(nativeEvent.payload, fallback));
+      const next = parseNativePayload(nativeEvent.payload, fallback);
+      setPaneFrames({
+        primary: next.primary.frame,
+        secondary: next.secondary.frame,
+      });
+      onStateChange?.(next);
     },
     [arrangement, onStateChange]
   );
@@ -41,10 +54,31 @@ export function DuoArrangementView({
       onStateChange={handleStateChange}
       style={[styles.container, style]}
     >
-      <View style={[styles.pane, primaryStyle]}>{primary}</View>
-      <View style={[styles.pane, secondaryStyle]}>{secondary}</View>
+      <View
+        collapsable={false}
+        style={[styles.pane, primaryStyle, paneSize(paneFrames.primary)]}
+      >
+        {primary}
+      </View>
+      <View
+        collapsable={false}
+        style={[styles.pane, secondaryStyle, paneSize(paneFrames.secondary)]}
+      >
+        {secondary}
+      </View>
     </NativeDuoArrangementView>
   );
+}
+
+function paneSize(frame?: DuoRect) {
+  return frame
+    ? {
+        width: frame.width,
+        height: frame.height,
+        right: undefined,
+        bottom: undefined,
+      }
+    : undefined;
 }
 
 const styles = StyleSheet.create({
