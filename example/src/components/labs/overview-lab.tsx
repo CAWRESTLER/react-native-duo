@@ -1,6 +1,7 @@
 import { DuoGeometryView, useDuo } from '@cawrestler/react-native-duo';
 import { useEffect, useState } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import { Link } from 'expo-router';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   AvailabilityRow,
@@ -124,6 +125,20 @@ export function OverviewLab() {
           tent, and fully open poses. Keep this app visible while changing poses
           to see every lab react live.
         </BodyText>
+      </LabCard>
+      <LabCard
+        symbol="square.stack.3d.up"
+        title="Native navigation integration"
+      >
+        <BodyText secondary>
+          Try existing native tabs and stacks, a real back button, a modal, and
+          a shared draft while folding.
+        </BodyText>
+        <Link href="/navigation" asChild>
+          <Pressable accessibilityRole="button">
+            <Text>Open navigation example →</Text>
+          </Pressable>
+        </Link>
       </LabCard>
     </DemoPage>
   );

@@ -1,7 +1,12 @@
-import { useContext, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { DuoContext, defaultDuoEnvironment } from './context';
+import {
+  createDuoEnvironmentStore,
+  DuoContext,
+  defaultDuoEnvironment,
+  type DuoEnvironmentStore,
+} from './context';
 import type { DuoProviderProps } from './types';
 
 export function DuoProvider({
@@ -29,15 +34,22 @@ export function DuoProvider({
     }),
     [window.height, window.scale, window.width]
   );
+  const storeRef = useRef<DuoEnvironmentStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createDuoEnvironmentStore(environment);
+  }
+  const store = storeRef.current;
 
-  useEffect(
-    () => onEnvironmentChange?.(environment),
-    [environment, onEnvironmentChange]
-  );
+  useEffect(() => {
+    const snapshot = store.update(environment);
+    onEnvironmentChange?.(snapshot);
+  }, [environment, onEnvironmentChange, store]);
 
   return (
-    <DuoContext.Provider value={environment}>
-      <View style={[styles.fill, style]}>{children}</View>
+    <DuoContext.Provider value={store}>
+      <View collapsable={false} style={[styles.fill, style]}>
+        {children}
+      </View>
     </DuoContext.Provider>
   );
 }
@@ -46,18 +58,11 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
 });
 
-export function useDuo() {
-  return useContext(DuoContext);
-}
-
-export function useDuoHinge() {
-  return useDuo().hinge;
-}
-
-export function useDuoReservedRegions() {
-  return useDuo().reservedRegions;
-}
-
-export function useDuoCameras() {
-  return useDuo().cameras;
-}
+export {
+  useDuo,
+  useDuoCameras,
+  useDuoGeometry,
+  useDuoHinge,
+  useDuoReservedRegions,
+  useDuoWindow,
+} from './context';

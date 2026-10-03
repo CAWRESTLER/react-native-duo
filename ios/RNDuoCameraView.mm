@@ -1,5 +1,6 @@
 #import "RNDuoCameraView.h"
 #import "RNDuoUtilities.h"
+#include "RNDuoCameraLifecycle.h"
 
 #import <AVFoundation/AVFoundation.h>
 #import <AVKit/AVKit.h>
@@ -42,11 +43,20 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   NSString *_smartFramingMode;
   NSString *_configuredSmartFramingMode;
   std::atomic<uint64_t> _configurationGeneration;
+  std::atomic<bool> _mounted;
+  std::atomic<bool> _foreground;
+  std::atomic<bool> _wantsRunning;
+  RNDuoCameraLifecycle _lifecycle;
+  NSMutableArray<id> *_notificationObservers;
   BOOL _active;
   BOOL _requestPermission;
   BOOL _mirrored;
   NSString *_resizeMode;
   NSString *_errorMessage;
+  NSDictionary *_errorDetails;
+  NSString *_cameraStatus;
+  NSString *_interruptionReason;
+  NSNumber *_interruptionReasonCode;
   NSString *_lastPayload;
   BOOL _observingSmartFraming;
   BOOL _observingRotation;
@@ -70,6 +80,10 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     _smartFramingMode = @"off";
     _configuredSmartFramingMode = @"off";
     _configurationGeneration.store(0);
+    _mounted.store(false);
+    _foreground.store(UIApplication.sharedApplication.applicationState != UIApplicationStateBackground);
+    _wantsRunning.store(false);
+    _cameraStatus = @"idle";
     _active = YES;
     _resizeMode = @"cover";
     _sessionQueue = dispatch_queue_create("dev.cawrestler.react-native-duo.camera", DISPATCH_QUEUE_SERIAL);
@@ -95,9 +109,10 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
             if (!self) return;
             dispatch_async(dispatch_get_main_queue(), ^{
               self->_directionMap = deviceDirections;
+              if (!self->_mounted.load()) return;
               if (self->_direction.length && self->_active && self.window &&
                   [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo] == AVAuthorizationStatusAuthorized) {
-                [self configureAndRun];
+                [self configureAndRunResetRecovery:NO];
               } else {
                 [self emitStateIfNeeded];
               }
@@ -106,6 +121,156 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     }
   }
   return self;
+}
+
+- (void)installNotificationObservers
+{
+  if (_notificationObservers) return;
+  _notificationObservers = [NSMutableArray array];
+  NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+  __weak __typeof(self) weakSelf = self;
+  for (NSNotificationName name in @[ AVCaptureSessionWasInterruptedNotification,
+                                     AVCaptureSessionInterruptionEndedNotification,
+                                     AVCaptureSessionRuntimeErrorNotification,
+                                     AVCaptureSessionDidStartRunningNotification,
+                                     AVCaptureSessionDidStopRunningNotification ]) {
+    id token = [center addObserverForName:name object:_session queue:nil usingBlock:^(NSNotification *notification) {
+      __strong __typeof(weakSelf) self = weakSelf;
+      if (!self || !self->_mounted.load()) return;
+      uint64_t generation = self->_configurationGeneration.load();
+      dispatch_async(self->_sessionQueue, ^{
+        if (!RNDuoCameraLifecycle::acceptsCallback(generation, self->_configurationGeneration.load(), self->_mounted.load())) return;
+        [self handleSessionNotification:notification];
+      });
+    }];
+    [_notificationObservers addObject:token];
+  }
+  for (NSNotificationName name in @[ UIApplicationDidEnterBackgroundNotification, UIApplicationDidBecomeActiveNotification ]) {
+    id token = [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *notification) {
+      __strong __typeof(weakSelf) self = weakSelf;
+      if (!self || !self->_mounted.load()) return;
+      BOOL foreground = [notification.name isEqualToString:UIApplicationDidBecomeActiveNotification];
+      self->_foreground.store(foreground);
+      if (!foreground) [self stopSession];
+      else if (self->_active && self.window &&
+          [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo] == AVAuthorizationStatusAuthorized) {
+        [self configureAndRunResetRecovery:NO];
+      } else [self emitStateIfNeeded];
+    }];
+    [_notificationObservers addObject:token];
+  }
+}
+
+- (void)removeNotificationObservers
+{
+  for (id token in _notificationObservers) [NSNotificationCenter.defaultCenter removeObserver:token];
+  _notificationObservers = nil;
+}
+
+- (void)setCameraError:(NSString *)message code:(NSString *)code nativeError:(NSError *)error recoverable:(BOOL)recoverable
+{
+  // Session state is owned by _sessionQueue, never changed by UI callbacks.
+  _errorMessage = message;
+  _errorDetails = @{
+    @"code": code,
+    @"nativeDomain": error.domain ?: (id)NSNull.null,
+    @"nativeCode": error ? @(error.code) : (id)NSNull.null,
+    @"recoverable": @(recoverable),
+  };
+}
+
+- (NSString *)nameForInterruptionReason:(NSInteger)reason
+{
+  switch (reason) {
+    case AVCaptureSessionInterruptionReasonVideoDeviceNotAvailableInBackground: return @"background";
+    case AVCaptureSessionInterruptionReasonAudioDeviceInUseByAnotherClient: return @"audioDeviceInUse";
+    case AVCaptureSessionInterruptionReasonVideoDeviceInUseByAnotherClient: return @"videoDeviceInUse";
+    case AVCaptureSessionInterruptionReasonVideoDeviceNotAvailableWithMultipleForegroundApps: return @"multipleForegroundApps";
+    case AVCaptureSessionInterruptionReasonVideoDeviceNotAvailableDueToSystemPressure: return @"systemPressure";
+    default:
+      if (@available(iOS 26.0, *)) {
+        if (reason == AVCaptureSessionInterruptionReasonSensitiveContentMitigationActivated) return @"sensitiveContent";
+      }
+      return @"unknown";
+  }
+}
+
+- (void)startSessionIfPermitted
+{
+  _lifecycle.setDesiredRunning(_wantsRunning.load());
+  if (!_mounted.load() || !_foreground.load() || !_device || !_lifecycle.shouldStart() ||
+      _session.isInterrupted || _session.isRunning ||
+      [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo] != AVAuthorizationStatusAuthorized) return;
+  _cameraStatus = @"configuring";
+  [_session startRunning];
+}
+
+- (void)setDynamicAspectRatio:(NSString *)aspectRatio forDevice:(AVCaptureDevice *)device errorCode:(NSString *)code API_AVAILABLE(ios(26.0))
+{
+  // Called on _sessionQueue while the device is locked. AVFoundation's
+  // completion may arrive on any queue, after props change or view recycling.
+  uint64_t generation = _configurationGeneration.load();
+  __weak __typeof(self) weakSelf = self;
+  __weak AVCaptureDevice *weakDevice = device;
+  [device setDynamicAspectRatio:aspectRatio completionHandler:^(CMTime syncTime, NSError *error) {
+    (void)syncTime;
+    __strong __typeof(weakSelf) self = weakSelf;
+    if (!self) return;
+    dispatch_async(self->_sessionQueue, ^{
+      if (!RNDuoCameraLifecycle::acceptsCallback(generation, self->_configurationGeneration.load(), self->_mounted.load()) ||
+          weakDevice != self->_device) return;
+      if (error) {
+        [self setCameraError:error.localizedDescription ?: @"Unable to apply the camera aspect ratio."
+                        code:code nativeError:error recoverable:YES];
+      }
+      [self emitStateIfNeeded];
+    });
+  }];
+}
+
+- (void)handleSessionNotification:(NSNotification *)notification
+{
+  _lifecycle.setDesiredRunning(_wantsRunning.load());
+  if ([notification.name isEqualToString:AVCaptureSessionWasInterruptedNotification]) {
+    _lifecycle.interrupt();
+    _interruptionReasonCode = notification.userInfo[AVCaptureSessionInterruptionReasonKey];
+    _interruptionReason = [self nameForInterruptionReason:_interruptionReasonCode.integerValue];
+    _cameraStatus = @"interrupted";
+  } else if ([notification.name isEqualToString:AVCaptureSessionInterruptionEndedNotification]) {
+    _interruptionReason = nil;
+    _interruptionReasonCode = nil;
+    _cameraStatus = _session.isRunning ? @"running" : (_errorMessage ? @"error" : @"stopped");
+    // AVFoundation normally resumes on its own. Only start if it did not and
+    // the view is still active, mounted, authorized, and in the foreground.
+    if (_lifecycle.endInterruption()) [self startSessionIfPermitted];
+  } else if ([notification.name isEqualToString:AVCaptureSessionRuntimeErrorNotification]) {
+    NSError *error = notification.userInfo[AVCaptureSessionErrorKey];
+    BOOL mediaReset = [error.domain isEqualToString:AVFoundationErrorDomain] && error.code == AVErrorMediaServicesWereReset;
+    BOOL restart = _lifecycle.runtimeError(mediaReset);
+    [self setCameraError:error.localizedDescription ?: @"The camera capture session failed."
+                    code:mediaReset ? @"mediaServicesReset" : @"runtimeError"
+             nativeError:error recoverable:mediaReset];
+    _cameraStatus = @"error";
+    // At most one reset restart per explicit activation/configuration. A
+    // successful start does not refill this budget and cannot create a loop.
+    if (restart) [self startSessionIfPermitted];
+  } else if ([notification.name isEqualToString:AVCaptureSessionDidStartRunningNotification]) {
+    // A late start cannot resurrect a paused/unmounted view.
+    if (!_wantsRunning.load() || !_foreground.load()) {
+      if (_session.isRunning) [_session stopRunning];
+      _cameraStatus = @"stopped";
+    } else if (_session.isRunning && !_session.isInterrupted) {
+      _cameraStatus = @"running";
+      // Retain the last diagnostic until an explicit configuration/retry, so
+      // an immediately recovered reset cannot disappear before JS sees it.
+      // `running`/`status` identify recovery; `error` is not a running flag.
+    } else {
+      _cameraStatus = _session.isInterrupted ? @"interrupted" : (_errorMessage ? @"error" : @"stopped");
+    }
+  } else if ([notification.name isEqualToString:AVCaptureSessionDidStopRunningNotification]) {
+    _cameraStatus = _session.isInterrupted ? @"interrupted" : (_session.isRunning ? @"running" : (_errorMessage ? @"error" : @"stopped"));
+  }
+  [self emitStateIfNeeded];
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -133,6 +298,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   _requestPermission = newProps.requestPermission;
   _mirrored = newProps.mirrored;
   _resizeMode = newProps.resizeMode.empty() ? @"cover" : @(newProps.resizeMode.c_str());
+  _wantsRunning.store(_active && _mounted.load() && _foreground.load());
   [super updateProps:props oldProps:oldProps];
 
   _previewView.previewLayer.videoGravity = [_resizeMode isEqualToString:@"contain"]
@@ -141,15 +307,18 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
 
   AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
   if (permissionRequestedNow && status == AVAuthorizationStatusNotDetermined) {
+    __weak __typeof(self) weakSelf = self;
     [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
       dispatch_async(dispatch_get_main_queue(), ^{
-        if (granted && self->_active && self.window) [self configureAndRun];
+        __strong __typeof(weakSelf) self = weakSelf;
+        if (!self || !self->_mounted.load()) return;
+        if (granted && self->_active && self.window && self->_foreground.load()) [self configureAndRunResetRecovery:YES];
         else [self emitStateIfNeeded];
       });
     }];
   } else if (status == AVAuthorizationStatusAuthorized &&
       (selectionChanged || smartFramingChanged || aspectRatioChanged || sensorCompensationChanged || activeChanged)) {
-    [self configureAndRun];
+    [self configureAndRunResetRecovery:YES];
   } else if (!_active) {
     [self stopSession];
   } else {
@@ -160,9 +329,15 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
-  if (self.window && _active && [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo] == AVAuthorizationStatusAuthorized) {
-    [self configureAndRun];
+  _mounted.store(self.window != nil);
+  _foreground.store(UIApplication.sharedApplication.applicationState != UIApplicationStateBackground);
+  _wantsRunning.store(_active && _mounted.load() && _foreground.load());
+  if (self.window) [self installNotificationObservers];
+  if (self.window && _active && _foreground.load() &&
+      [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo] == AVAuthorizationStatusAuthorized) {
+    [self configureAndRunResetRecovery:YES];
   } else if (!self.window) {
+    [self removeNotificationObservers];
     [self stopSession];
   } else {
     // Props can arrive before Fabric installs the event emitter. Report an
@@ -218,25 +393,46 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   }
 }
 
-- (void)configureAndRun
+- (void)configureAndRunResetRecovery:(BOOL)resetRecovery
 {
+  BOOL shouldRun = _active && _mounted.load() && _foreground.load() && self.window != nil;
+  _wantsRunning.store(shouldRun);
+  if (!shouldRun) {
+    [self stopSession];
+    return;
+  }
   if (@available(iOS 27.1, *)) {
     AVCaptureDevice *resolvedDevice = [self resolveDeviceForLocation:_location];
     NSString *aspectRatio = [_dynamicAspectRatio copy];
     NSString *smartFramingMode = [_smartFramingMode copy];
     BOOL sensorCompensation = _sensorOrientationCompensation;
-    BOOL shouldRun = _active && self.window != nil;
     uint64_t generation = ++_configurationGeneration;
     [self teardownRotationCoordinator];
     dispatch_async(_sessionQueue, ^{
       if (generation != self->_configurationGeneration.load()) return;
+      self->_lifecycle.setDesiredRunning(self->_wantsRunning.load());
+      if (resetRecovery) self->_lifecycle.beginExplicitConfiguration(self->_wantsRunning.load());
+      else if (self->_lifecycle.hasFailed()) {
+        [self emitStateIfNeeded];
+        return;
+      }
+      if (self->_session.isInterrupted) self->_lifecycle.interrupt();
+      else {
+        self->_lifecycle.endInterruption();
+        self->_interruptionReason = nil;
+        self->_interruptionReasonCode = nil;
+      }
       AVCaptureDevice *device = resolvedDevice;
       [self teardownSmartFraming];
       self->_configuredSmartFramingMode = smartFramingMode;
       [self->_session beginConfiguration];
       for (AVCaptureInput *input in self->_session.inputs) [self->_session removeInput:input];
       self->_device = nil;
-      self->_errorMessage = nil;
+      if (resetRecovery || ![self->_errorDetails[@"code"] isEqualToString:@"mediaServicesReset"]) {
+        self->_errorMessage = nil;
+        self->_errorDetails = nil;
+      }
+      self->_cameraStatus = @"configuring";
       if (device) {
         NSError *error = nil;
         AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
@@ -250,10 +446,12 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
             self->_photoOutput.cameraSensorOrientationCompensationEnabled = sensorCompensation;
           }
         } else {
-          self->_errorMessage = error.localizedDescription ?: @"Unable to attach the Duo camera.";
+          [self setCameraError:error.localizedDescription ?: @"Unable to attach the Duo camera."
+                          code:@"configurationFailed" nativeError:error recoverable:YES];
         }
       } else {
-        self->_errorMessage = @"This Duo camera is not available in the current environment.";
+        [self setCameraError:@"This Duo camera is not available in the current environment."
+                        code:@"deviceUnavailable" nativeError:nil recoverable:YES];
       }
       [self->_session commitConfiguration];
       device = self->_device;
@@ -262,18 +460,22 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
         if ([device.activeFormat.supportedDynamicAspectRatios containsObject:aspectRatio]) {
           NSError *aspectError = nil;
           if ([device lockForConfiguration:&aspectError]) {
-            [device setDynamicAspectRatio:aspectRatio completionHandler:nil];
+            [self setDynamicAspectRatio:aspectRatio forDevice:device errorCode:@"aspectRatioFailed"];
             [device unlockForConfiguration];
           } else {
-            self->_errorMessage = aspectError.localizedDescription;
+            [self setCameraError:aspectError.localizedDescription ?: @"Unable to configure the camera aspect ratio."
+                            code:@"aspectRatioFailed" nativeError:aspectError recoverable:YES];
           }
         } else {
-          self->_errorMessage = @"The requested dynamic aspect ratio is not supported by the selected camera.";
+          [self setCameraError:@"The requested dynamic aspect ratio is not supported by the selected camera."
+                          code:@"aspectRatioUnsupported" nativeError:nil recoverable:NO];
         }
       }
-      if (device && shouldRun && generation == self->_configurationGeneration.load() &&
-          !self->_session.isRunning) [self->_session startRunning];
+      if (device && shouldRun && generation == self->_configurationGeneration.load()) [self startSessionIfPermitted];
       if ((!shouldRun || !device) && self->_session.isRunning) [self->_session stopRunning];
+      if (self->_session.isInterrupted) self->_cameraStatus = @"interrupted";
+      else if (self->_session.isRunning) self->_cameraStatus = @"running";
+      else if (self->_errorMessage) self->_cameraStatus = @"error";
       dispatch_async(dispatch_get_main_queue(), ^{
         if (generation != self->_configurationGeneration.load()) return;
         [self updateMirroring];
@@ -283,7 +485,10 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     });
   } else {
     dispatch_async(_sessionQueue, ^{
-      self->_errorMessage = @"Duo cameras require iOS 27.1 or later.";
+      if (!self->_mounted.load()) return;
+      [self setCameraError:@"Duo cameras require iOS 27.1 or later."
+                      code:@"unsupportedOS" nativeError:nil recoverable:NO];
+      self->_cameraStatus = @"unsupported";
       [self emitStateIfNeeded];
     });
   }
@@ -291,12 +496,15 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
 
 - (void)stopSession
 {
+  _wantsRunning.store(false);
   uint64_t generation = ++_configurationGeneration;
   [self teardownRotationCoordinator];
   dispatch_async(_sessionQueue, ^{
     if (generation != self->_configurationGeneration.load()) return;
+    self->_lifecycle.setDesiredRunning(false);
     [self teardownSmartFraming];
     if (self->_session.isRunning) [self->_session stopRunning];
+    self->_cameraStatus = self->_session.isInterrupted ? @"interrupted" : (self->_errorMessage ? @"error" : @"stopped");
     dispatch_async(dispatch_get_main_queue(), ^{ [self emitStateIfNeeded]; });
   });
 }
@@ -353,6 +561,9 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     if (format && [device lockForConfiguration:&configurationError]) {
       device.activeFormat = format;
       [device unlockForConfiguration];
+    } else if (configurationError) {
+      [self setCameraError:configurationError.localizedDescription ?: @"Unable to configure smart framing."
+                      code:@"smartFramingFailed" nativeError:configurationError recoverable:YES];
     }
     AVCaptureSmartFramingMonitor *monitor = device.smartFramingMonitor;
     if (!monitor || monitor.supportedFramings.count == 0) return;
@@ -365,7 +576,8 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     _observingSmartFraming = YES;
     NSError *monitorError = nil;
     if (![monitor startMonitoringWithError:&monitorError]) {
-      _errorMessage = monitorError.localizedDescription ?: @"Unable to start smart framing.";
+      [self setCameraError:monitorError.localizedDescription ?: @"Unable to start smart framing."
+                      code:@"smartFramingFailed" nativeError:monitorError recoverable:YES];
     }
   }
 }
@@ -389,7 +601,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
 {
   if (context == RNDuoRotationContext) {
     dispatch_async(dispatch_get_main_queue(), ^{
-      if (object != self->_rotationCoordinator) return;
+      if (!self->_mounted.load() || object != self->_rotationCoordinator) return;
       [self updatePreviewRotation];
       [self emitStateIfNeeded];
     });
@@ -403,7 +615,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     AVCaptureSmartFramingMonitor *monitor = object;
     uint64_t generation = _configurationGeneration.load();
     dispatch_async(_sessionQueue, ^{
-      if (generation != self->_configurationGeneration.load() || monitor != self->_smartFramingMonitor) return;
+      if (!self->_mounted.load() || generation != self->_configurationGeneration.load() || monitor != self->_smartFramingMonitor) return;
       AVCaptureFraming *framing = monitor.recommendedFraming;
       if (framing && [self->_configuredSmartFramingMode isEqualToString:@"apply"]) {
         AVCaptureDevice *device = self->_device;
@@ -412,10 +624,13 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
         if ([device.activeFormat.supportedDynamicAspectRatios containsObject:aspectRatio]) {
           NSError *error = nil;
           if ([device lockForConfiguration:&error]) {
-            [device setDynamicAspectRatio:aspectRatio completionHandler:nil];
+            [self setDynamicAspectRatio:aspectRatio forDevice:device errorCode:@"smartFramingFailed"];
             device.videoZoomFactor = MAX(device.minAvailableVideoZoomFactor,
                 MIN(device.maxAvailableVideoZoomFactor, zoomFactor));
             [device unlockForConfiguration];
+          } else {
+            [self setCameraError:error.localizedDescription ?: @"Unable to apply smart framing."
+                            code:@"smartFramingFailed" nativeError:error recoverable:YES];
           }
         }
       }
@@ -447,7 +662,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     dispatch_async(dispatch_get_main_queue(), ^{ [self emitStateIfNeeded]; });
     return;
   }
-  if (!_eventEmitter) return;
+  if (!_mounted.load() || !_eventEmitter) return;
   uint64_t generation = _configurationGeneration.load();
   BOOL supported = NO;
   NSArray *forwardCameraIds = @[];
@@ -466,7 +681,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     if (_rotationCoordinator) previewRotation = @(_rotationCoordinator.videoRotationAngleForHorizonLevelPreview);
   }
   dispatch_async(_sessionQueue, ^{
-    if (generation != self->_configurationGeneration.load()) return;
+    if (!self->_mounted.load() || generation != self->_configurationGeneration.load()) return;
     AVCaptureDevice *device = self->_device;
     BOOL smartFramingSupported = NO;
     BOOL smartFramingMonitoring = NO;
@@ -494,6 +709,10 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
       @"supported": @(supported),
       @"available": @(device != nil),
       @"running": @(self->_session.isRunning),
+      @"status": self->_cameraStatus ?: @"idle",
+      @"interrupted": @(self->_session.isInterrupted),
+      @"interruptionReason": self->_interruptionReason ?: (id)NSNull.null,
+      @"interruptionReasonCode": self->_interruptionReasonCode ?: (id)NSNull.null,
       @"permission": [self permissionName],
       @"location": location,
       @"direction": direction.length ? direction : (id)NSNull.null,
@@ -514,9 +733,10 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
         @"recommended": recommendedFraming,
       },
       @"error": self->_errorMessage ?: (id)NSNull.null,
+      @"errorDetails": self->_errorDetails ?: (id)NSNull.null,
     });
     dispatch_async(dispatch_get_main_queue(), ^{
-      if (generation != self->_configurationGeneration.load() || !self->_eventEmitter ||
+      if (!self->_mounted.load() || generation != self->_configurationGeneration.load() || !self->_eventEmitter ||
           [self->_lastPayload isEqualToString:payload]) return;
       self->_lastPayload = payload;
       auto emitter = std::static_pointer_cast<const RNDuoCameraViewEventEmitter>(self->_eventEmitter);
@@ -527,6 +747,8 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
 
 - (void)prepareForRecycle
 {
+  _mounted.store(false);
+  [self removeNotificationObservers];
   [self stopSession];
   [super prepareForRecycle];
   _lastPayload = nil;
@@ -534,8 +756,16 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
 
 - (void)dealloc
 {
+  _mounted.store(false);
+  _wantsRunning.store(false);
+  [self removeNotificationObservers];
   [self teardownRotationCoordinator];
   [self teardownSmartFraming];
+  _previewView.previewLayer.session = nil;
+  // Do not block the UI thread in stopRunning, and do not retain a deallocating
+  // component. Pending session-queue blocks retain self, so none remain here.
+  AVCaptureSession *session = _session;
+  dispatch_async(_sessionQueue, ^{ if (session.isRunning) [session stopRunning]; });
 }
 
 @end

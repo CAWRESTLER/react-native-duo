@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "node": "v24.21.0",
+  "packageManager": "yarn@4.11.0",
+  "react": "19.3.0",
+  "reactNative": "0.88.0-rc.1",
+  "expo": {
+    "declaration": "~58.0.0-preview.7",
+    "resolution": "58.0.0"
+  },
+  "navigation": {
+    "expo-router": {
+      "declaration": "~58.0.8",
+      "resolution": "58.0.10"
+    },
+    "react-native-screens": {
+      "declaration": "~4.28.0",
+      "resolution": "4.28.0"
+    },
+    "react-native-safe-area-context": {
+      "declaration": "~5.9.1",
+      "resolution": "5.9.1"
+    }
+  }
+}

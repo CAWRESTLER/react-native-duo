@@ -47,7 +47,9 @@ yarn example typecheck
 yarn pack:check
 ```
 
-`validate` runs lint, library and example type checks, the repository/release tooling tests, library tests, and `pack:check`. `prepublishOnly` runs the same validation. `pack:check` builds the distributable output, extracts a real npm tarball into a temporary directory, validates its entry points/types/native sources, and runs the packed Expo config plugin. It checks that the example application and native build outputs stay out of the npm package. These commands do not publish.
+`validate` runs the compatibility baseline guard, lint, library and example type checks, the repository/release tooling tests, library tests, and `pack:check`. `prepublishOnly` runs the same validation. `pack:check` builds the distributable output, extracts a real npm tarball into a temporary directory, validates its entry points/types/native sources, and runs the packed Expo config plugin. It checks that the example application and native build outputs stay out of the npm package. These commands do not publish.
+
+The camera and navigation visibility policy tests compile the same C++ helpers used by the native views. They need a C++17 compiler (`c++` by default, or the compiler executable selected by `CXX`). Xcode's command-line tools provide it on macOS; install a C++ build toolchain for Linux development. These policy tests are not a substitute for UIKit/AVFoundation interaction tests.
 
 ## Pull requests and protected main
 
@@ -65,38 +67,38 @@ CI checks package lint/types/tests, distribution contents, and example builds on
 
 ## Publishing
 
-The public package name is `@cawrestler/react-native-duo`. The prepared first version is `0.1.0-preview.1`, for the `next` channel. The package is currently unpublished, and npm authentication/trusted-publisher setup remains a maintainer prerequisite. Preparing the version and release notes is not permission to publish them.
+The public package name is `@cawrestler/react-native-duo`. The first preview's publication assigned both `next` and `latest` to `0.1.0-preview.1`, as observed on 2026-10-02. An attempted removal of its `latest` alias returned HTTP 400; this documents the observed state, not a general npm rule. The alias does not make the preview stable. Subsequent previews must publish to `next` without moving `latest`. Check current tags rather than assuming this historical state is unchanged. Preparing a version and notes is not permission to publish it. Confirm trusted-publisher setup before relying on the OIDC workflow.
 
 ### Prepare a release pull request
 
-Use a clean branch named `codex/release-*` or `release-*` based on current `origin/main`. Local `release-it` only updates the version and [changelog](./CHANGELOG.md): automatic Git commit, tag, and push, npm publishing, and GitHub release creation are all disabled. Release commands are restricted to those release branches.
+Use a clean branch named `release-*` based on current `origin/main`. Local `release-it` only updates the version and [changelog](./CHANGELOG.md): automatic Git commit, tag, and push, npm publishing, and GitHub release creation are all disabled. Release commands are restricted to release branches.
 
 ```sh
 git fetch origin
-git switch -c codex/release-0.1.1 origin/main
+git switch -c release-0.1.1 origin/main
 yarn release:dry-run patch
 yarn release patch
 yarn validate
 git diff -- package.json CHANGELOG.md yarn.lock
 ```
 
-Use `minor`, `major`, or an exact unused version as appropriate. For the already-prepared `0.1.0-preview.1`, do not increment the version again. Before committing any release:
+Use `minor`, `major`, or an exact unused version as appropriate. For the already-prepared `0.1.0-preview.2` candidate, do not increment the version again. Before committing any release:
 
 - Check `package.json`, [CHANGELOG.md](./CHANGELOG.md), and [RELEASE_NOTES.md](./RELEASE_NOTES.md) refer to the same version.
 - Make the first line of `RELEASE_NOTES.md` exactly `# @cawrestler/react-native-duo <version>` and review the body. Include supported capabilities, requirements, known gaps, and installation guidance; do not claim unverified hardware behavior or independent RN windows.
 - Keep `publishConfig.tag` as `next` for previews. Change it deliberately for a stable release; the workflow also requires previews to use `next`.
 - Run `yarn install --immutable` and `yarn validate`. Review any lockfile changes, the packed version/notes, and distribution contents.
-- Record native/manual test evidence for the release commit, including scrolling, accessibility, fold poses, cameras, and accessories; unavailable or unverified paths must remain explicit. Native drag scrolling still requires manual confirmation for this preview.
+- Run `yarn check:compatibility` and review [the compatibility checklist](./docs/COMPATIBILITY.md), including navigation ownership, rotation, draft preservation, and touch/scroll behavior. Record native/manual/device evidence for the release commit; unavailable or unverified paths must remain explicit. Passing the baseline guard does not certify a consuming app.
 
-Commit the reviewed release files and any lockfile changes, push the release branch, and open a pull request. Merge only after `CI Required` succeeds and the native/visual test evidence has been reviewed. The initial preview includes the preceding full-width layout changes, so keep those implementation files and their tests together with its release metadata.
+Commit the reviewed release files and any lockfile changes, push the release branch, and open a pull request. Merge only after `CI Required` succeeds and the native/visual test evidence has been reviewed. Keep implementation changes, regression tests, compatibility evidence, and release metadata together. Do not reuse the published preview.1 version.
 
-### First publication and npm setup
+### npm setup after first publication
 
-The first registry publication requires a maintainer authentication bootstrap. npm requires the package to already exist before its trusted publisher can be configured, as documented in [npm trust prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). After the initial release pull request is merged and its exact `main` commit has green CI and recorded native/visual testing, the maintainer must authenticate with an npm account authorized for `@cawrestler`, satisfy npm's authentication requirements, and deliberately perform that first publication. Preparing a release or setting up this repository does not perform the bootstrap.
+The first publication bootstrap has completed for preview.1. npm requires the package to exist before its trusted publisher can be configured, as documented in [npm trust prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). The package now satisfies that prerequisite, but existence alone does not establish that the trusted publisher has been configured or verified. Check package settings before any subsequent release; do not rerun the first publication or reuse its version.
 
-When publication is explicitly authorized, the initial preview command is `npm publish --access public --tag next` from the verified, merged release checkout after validation. Do not run it from an unreviewed branch or substitute `latest`. After npm accepts it, create `v0.1.0-preview.1` on that exact commit as a GitHub prerelease using `RELEASE_NOTES.md` and without marking it latest. The first authenticated publication and matching release need this manual bootstrap; the OIDC workflow below is for subsequent publications after trusted-publisher setup.
+Repository setup, branch pushes, release preparation, and compatibility checks do not authorize npm/GitHub writes. Use the deliberately approved workflow below for a new, merged version after publisher setup and validation; do not substitute `latest` for a prerelease.
 
-After the package exists, add its GitHub Actions trusted publisher in npm package settings using these exact values:
+If not already configured, add its GitHub Actions trusted publisher in npm package settings using these exact values:
 
 - Organization or user: `CAWRESTLER`
 - Repository: `react-native-duo`

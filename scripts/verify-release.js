@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
+const { checkCompatibility } = require('./check-compatibility');
 
 const repository = 'CAWRESTLER/react-native-duo';
 const requiredJobs = [
@@ -172,6 +173,7 @@ function verifyRelease() {
   };
   const release = validateContext(context, metadata);
   readReleaseNotes(projectRoot, metadata);
+  checkCompatibility(projectRoot);
   const git = (args) =>
     execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' }).trim();
   assert.equal(
