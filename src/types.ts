@@ -216,6 +216,36 @@ export interface DuoAdaptiveToolbarProps {
   contentStyle?: ViewProps['style'];
 }
 
+/** Tabs, headers and back buttons belong to the existing navigator, not this adapter. */
+export type DuoNavigationToolbarItem = Omit<DuoToolbarItem, 'placement'> & {
+  placement?: 'bottomBar' | 'overflow';
+};
+
+export interface DuoNavigationToolbarState extends DuoToolbarState {
+  attachment:
+    'attached' | 'inactive' | 'missingNativeStack' | 'conflict' | 'fallback';
+  /** Action host, not a guarantee that UIKit's compression policy exposes every item. */
+  actionPresentation?: 'navigationController' | 'inline' | 'none' | 'fallback';
+}
+
+export interface DuoNavigationToolbarProps {
+  children: ReactNode;
+  items: DuoNavigationToolbarItem[];
+  /** Pass the navigator's focus state. Inactive screens relinquish native toolbar ownership. */
+  active?: boolean;
+  tintColor?: string;
+  compressionBehavior?: DuoVerticalBarCompression;
+  /** Use inline for native-tabs wrappers that do not expose a horizontal navigation toolbar. Vertical actions still use the existing stack. */
+  horizontalPresentation?: 'navigator' | 'inline';
+  /** The adapter owns safe padding by default; do not also automatically inset child scroll views. */
+  contentLayout?: DuoToolbarContentLayout;
+  background?: ReactNode;
+  onItemPress?: (id: string) => void;
+  onStateChange?: (state: DuoNavigationToolbarState) => void;
+  style?: ViewProps['style'];
+  contentStyle?: ViewProps['style'];
+}
+
 export type DuoSceneAccessoryKind = 'externalDisplay' | 'cameraCapture';
 
 export interface DuoSceneAccessoryContent {
@@ -262,6 +292,40 @@ export type DuoCameraPermission =
   'undetermined' | 'denied' | 'restricted' | 'granted';
 export type DuoSmartFramingMode = 'off' | 'monitor' | 'apply';
 
+export type DuoCameraStatus =
+  | 'idle'
+  | 'configuring'
+  | 'running'
+  | 'stopped'
+  | 'interrupted'
+  | 'error'
+  | 'unsupported';
+
+export type DuoCameraInterruptionReason =
+  | 'background'
+  | 'audioDeviceInUse'
+  | 'videoDeviceInUse'
+  | 'multipleForegroundApps'
+  | 'systemPressure'
+  | 'sensitiveContent'
+  | 'unknown';
+
+export interface DuoCameraErrorDetails {
+  code:
+    | 'configurationFailed'
+    | 'deviceUnavailable'
+    | 'unsupportedOS'
+    | 'aspectRatioUnsupported'
+    | 'aspectRatioFailed'
+    | 'smartFramingFailed'
+    | 'runtimeError'
+    | 'mediaServicesReset';
+  nativeDomain: string | null;
+  nativeCode: number | null;
+  /** A retry or changed configuration may help; not a guarantee of recovery. */
+  recoverable: boolean;
+}
+
 export interface DuoSmartFramingState {
   supported: boolean;
   monitoring: boolean;
@@ -287,6 +351,15 @@ export interface DuoCameraViewState {
   aspectRatios: string[];
   selectedAspectRatio: string | null;
   smartFraming: DuoSmartFramingState;
+  /** Session lifecycle, separate from authorization and device availability. */
+  status?: DuoCameraStatus;
+  interrupted?: boolean;
+  interruptionReason?: DuoCameraInterruptionReason | null;
+  /** Original AVFoundation reason, including future reasons unknown to this SDK. */
+  interruptionReasonCode?: number | null;
+  /** Latest diagnostic, retained through automatic reset recovery until explicit configuration/retry. */
+  errorDetails?: DuoCameraErrorDetails | null;
+  /** Latest readable diagnostic. A warning/recovered reset can coexist with `running: true`. */
   error: string | null;
 }
 
@@ -301,6 +374,7 @@ export interface DuoCameraViewProps {
   dynamicAspectRatio?: string;
   /** Defaults to the system's sensor orientation compensation setting (true). */
   sensorOrientationCompensation?: boolean;
+  /** Stop when false. Set false then true to explicitly retry a failed session. */
   active?: boolean;
   /** Set to true in direct response to a user action to request camera permission. */
   requestPermission?: boolean;

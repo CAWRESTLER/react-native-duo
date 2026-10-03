@@ -16,6 +16,10 @@ export function DuoCameraView({
       supported: false,
       available: false,
       running: false,
+      status: 'unsupported',
+      interrupted: false,
+      interruptionReason: null,
+      interruptionReasonCode: null,
       permission: 'undetermined',
       location,
       direction: direction ?? null,
@@ -36,6 +40,7 @@ export function DuoCameraView({
         recommended: null,
       },
       error: null,
+      errorDetails: null,
     });
   }, [direction, location, onStateChange, smartFraming, source]);
   return <View style={style} />;

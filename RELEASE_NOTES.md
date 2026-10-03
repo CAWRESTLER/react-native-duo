@@ -1,8 +1,16 @@
-# @cawrestler/react-native-duo 0.1.0-preview.1
+# @cawrestler/react-native-duo 0.1.0-preview.2
 
-The first developer preview brings iPhone Duo's native layout, hinge, toolbar, camera-preview, and companion-surface APIs to React Native through typed components and hooks. App developers compose React/TypeScript; the package provides the UIKit and AVFoundation bridge.
+This developer preview builds on the first preview's native layout, hinge, toolbar, camera-preview, and companion-surface APIs. App developers compose React/TypeScript; the package provides the UIKit and AVFoundation bridge. Installing `0.1.0-preview.1` does not include the changes described here.
 
-This is an evaluation release, not a stable production-support promise. APIs and integration details may change before `0.1.0`. The npm channel is `next`, and the GitHub release is a prerelease.
+This is for evaluation, not a stable production-support promise. APIs and integration details may change before `0.1.0`. This release targets npm `next` and a GitHub prerelease; it does not promote a stable release or move `latest`. Before this release was prepared, registry inspection on 2026-10-03 found both tags pointing to `0.1.0-preview.1`; the retained `latest` alias is not a stable-release claim. Registry availability, not the presence of these notes, confirms publication.
+
+## Changes since preview.1
+
+- **Navigator-owned integration:** `DuoNavigationToolbar` attaches screen actions to an existing native navigation stack without replacing its controllers. The host navigator retains header/back/tab/modal ownership; use screen focus to activate the appropriate toolbar. Explicit `horizontalPresentation="inline"` hosts a measured, screen-local UIKit action toolbar for wrapped native tabs whose horizontal stack toolbar does not render; vertical actions still use the existing stack. The default remains `navigator`. Standalone `DuoAdaptiveToolbar` remains available for screens that own their bars.
+- **Isolated provider subscriptions:** existing hooks keep their signatures; new `useDuoGeometry()` and `useDuoWindow()` subscribe to their respective fields. Structurally shared snapshots keep unrelated narrow-hook consumers from rerendering on hinge-angle updates. `useDuo()` still observes the complete environment. A stable native-provider wrapper contains siblings and RN modals without an app-specific wrapper workaround; simulated fold/rotation tests verify draft state is not remounted by telemetry updates.
+- **Camera lifecycle diagnostics and recovery:** additive optional `status`, `interrupted`, `interruptionReason`, `interruptionReasonCode`, and structured `errorDetails` distinguish interruption/runtime failure from an idle or stopped preview. The existing `error` string remains. Normal interruptions resume only a mounted, active, foreground, authorized session; media-services reset gets at most one automatic retry per explicit activation/configuration. Other fatal runtime failures require `active={false}` followed by `true`. Errors from asynchronous aspect-ratio and smart-framing application are reported. Diagnostics can persist after automatic recovery; inspect `running`/`status` rather than treating a non-null error as proof capture is still stopped.
+- **Reproducible compatibility checks:** a recorded RN `0.88.0-rc.1` / React `19.3.0` / locked Expo `58.0.0` baseline is checked against manifests and Yarn resolutions in local validation, CI, and release verification. Checks do not certify all RN/Expo stacks or uninspected apps.
+- **Explicit validation boundaries:** the compatibility guide documents fold/rotation/scroll/navigation/accessibility/draft-preservation checks and distinguishes automated, manual, and physical-device evidence. Connie remains unverified pending inspection of its actual host and versions.
 
 ## Highlights
 
@@ -22,6 +30,8 @@ The distribution includes JavaScript, TypeScript declarations, Fabric/codegen so
 - React Native's New Architecture/Fabric must be enabled.
 - Building the native iOS implementation requires Xcode 27.1+ and the iOS 27.1 SDK. Native Duo features require iOS 27.1+ and eligible hardware/window state.
 - The reproducible demo baseline is React Native `0.88.0-rc.1`, React `19.3.0`, and Expo `58.0.0`, as resolved by the repository lockfile. Other version combinations are not a tested compatibility guarantee.
+- Node `v24.21.0` and Yarn `4.11.0` define the repository development toolchain. See the [compatibility guide](./docs/COMPATIBILITY.md) for what automated checks establish and the manual/device validation still required.
+- Provider/navigation/camera bridge tests use mocked native hosts; the compiled camera-policy tests exercise restart guards, not AVFoundation devices. None establishes compatibility with Connie or other uninspected consuming apps, real navigation ownership, physical-camera recovery, accessibility, or a performance benchmark.
 - Expo apps require a native development build; Expo Go cannot load the package. Rebuild after installing or changing native sources/codegen.
 - Android/web provide React Native arrangement and horizontal toolbar fallbacks. Older iOS runtimes use compatibility paths, but an older SDK cannot compile the Duo native source. Fallbacks do not emulate Duo hardware telemetry, vertical UIKit rails, cameras, or scene accessories.
 - Camera and companion-surface availability depends on the device, permission, display connections, and system eligibility. API support or successful registration alone does not mean the feature can currently be presented.
@@ -34,19 +44,19 @@ The distribution includes JavaScript, TypeScript declarations, Fabric/codegen so
 - **Automatic arrangement is UIKit policy.** The package does not promise identical decisions to SwiftUI's `automaticArrangement` in every fold/window state, nor complete visual parity with the SwiftUI app.
 - **Bar placement remains system-owned.** Compression is a preference, not an unconditional hide/show instruction. Vertical-bar opt-out affects the component's controls, not the app's window-wide status-bar axis.
 - **Edge-to-edge is opt-in.** Apps must position important controls around safe areas and reserved regions. Duo Studio's small control-lane policy is an example, not a general collision-layout engine; it does not change the package's safe defaults.
-- **Simulator testing is not physical hardware certification.** Camera, companion-display, accessibility, and touch/scroll behavior should be checked on the intended device/runtime before shipping a consuming app. In particular, native drag scrolling still needs manual release confirmation.
+- **Simulator testing is not physical hardware certification.** Camera, companion-display, accessibility, and touch/scroll behavior must be checked on the intended device/runtime before shipping a consuming app. Complete and record the candidate's manual checklist; source tests and a successful build are not interaction or visual-parity evidence.
 
 ## Try the preview
 
-After the maintainer publishes this version, pin it for reproducible evaluation:
+Once this release is published, pin its exact version:
 
 ```sh
-npm install @cawrestler/react-native-duo@0.1.0-preview.1
+npm install @cawrestler/react-native-duo@0.1.0-preview.2
 ```
 
-Use `@next` instead of the exact version to follow future previews. Until publication, build and install a local `.tgz` using the README's distribution instructions. In either case, follow the Expo or bare React Native setup and rebuild the native app before testing.
+Use `@next` instead of the exact version to follow published previews. Verify availability with `npm view @cawrestler/react-native-duo dist-tags`; before publication, evaluate a locally built `.tgz` instead. In either case, follow the Expo or bare React Native setup and rebuild the native app before testing.
 
-The [README](https://github.com/CAWRESTLER/react-native-duo/blob/v0.1.0-preview.1/README.md) contains the complete API reference. The [example guide](https://github.com/CAWRESTLER/react-native-duo/blob/v0.1.0-preview.1/example/README.md) explains each experiment and how to compare fold states with the SwiftUI lab.
+Use this version's [README](./README.md), [navigation guide](./docs/NAVIGATION.md), and [example guide](./example/README.md). The preview.1 reference remains available in its [versioned README](https://github.com/CAWRESTLER/react-native-duo/blob/v0.1.0-preview.1/README.md) and [versioned example guide](https://github.com/CAWRESTLER/react-native-duo/blob/v0.1.0-preview.1/example/README.md).
 
 ## Feedback
 

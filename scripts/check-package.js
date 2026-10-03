@@ -67,6 +67,11 @@ async function checkPackage() {
       'ReactNativeDuo.podspec',
       'ios/RNDuoUtilities.h',
       'ios/RNDuoUtilities.mm',
+      'ios/RNDuoCameraLifecycle.h',
+      'ios/RNDuoNavigationToolbarVisibility.h',
+      'docs/NAVIGATION.md',
+      'docs/COMPATIBILITY.md',
+      'docs/compatibility-baseline.json',
       'app.plugin.js',
       'scripts/install-git-hooks.js',
       'lib/module/package.json',
@@ -91,6 +96,7 @@ async function checkPackage() {
       'GeometryView',
       'ArrangementView',
       'AdaptiveToolbar',
+      'NavigationToolbar',
       'CameraView',
       'SceneAccessory',
     ]) {
@@ -101,6 +107,7 @@ async function checkPackage() {
       'Environment',
       'Arrangement',
       'Toolbar',
+      'NavigationToolbar',
       'Camera',
       'SceneAccessory',
     ]) {

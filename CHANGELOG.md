@@ -1,12 +1,33 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-preview.2 — 2026-10-03
 
-Changes after `0.1.0-preview.1` will be listed here.
+Developer preview targeting npm `next`, not a stable release. Publication is a separate approved workflow step; preparing this changelog does not publish. Before release preparation, both npm tags pointed to `0.1.0-preview.1` as checked on 2026-10-03. This release does not move that initial preview's `latest` alias.
+
+### Added
+
+- Explicit compatibility baseline and app/pose/accessibility/draft-preservation checklist, separating automated checks, manual interaction, and hardware-only validation. Connie and other uninspected consuming apps remain unverified.
+- Manifest/lockfile consistency guard for the locked React/RN/Expo workspace and its tooling, with regression tests for dependency drift, duplicate runtimes, and malformed/missing lock entries. The guard runs in local validation, existing CI, and release verification without publishing anything.
+- `DuoNavigationToolbar` for screen actions attached to an existing native navigation stack, preserving navigator-owned headers, back stack, tabs, and modals instead of creating competing bar controllers.
+- `useDuoGeometry()` and `useDuoWindow()` for provider-local geometry and window-only subscriptions, alongside the existing environment/hinge/region/camera hooks.
+- Optional camera lifecycle diagnostics: `status`, interruption state/reason/code, and structured `errorDetails`, while retaining the compatible `error` message.
+
+### Changed
+
+- Release-channel guidance reflects the published preview's actual `latest` + `next` tags rather than describing it as unpublished or next-only. Future prereleases remain restricted to `next` by the publishing workflow.
+- Provider updates structurally share unchanged snapshots and notify independent streams. Angle-only events no longer rerender unrelated narrow-hook consumers; `useDuo()` intentionally still receives the whole environment. A stable non-collapsable provider wrapper safely contains sibling views and RN modals without a consumer workaround.
+- Camera session lifecycle observes interruptions, runtime errors, session start/stop, and app foreground/background state, with mounted/generation guards and cleanup. Normal interruptions resume only eligible active sessions; media-services-reset recovery is bounded to one automatic retry per explicit activation/configuration. Other fatal runtime failures require explicit stop/restart.
+- Asynchronous aspect-ratio and smart-framing application failures report native errors. Diagnostics persist through automatic recovery until explicit configuration/retry; `running` and `status`, not absence of an error, indicate successful recovery.
+
+### Validation boundaries
+
+The native-tabs navigation fixture explicitly uses `horizontalPresentation="inline"` for screen-local horizontal UIKit actions; vertical actions remain on the existing stack. The wrapped stack's own horizontal toolbar did not render in the SDK 58 fixture, so this is a documented presentation alternative, not an upstream navigator repair or automatic visual-parity claim.
+
+New rendered/provider tests check subscription isolation, wrapper/Modal shape, simulated fold/rotation draft preservation, navigation bridge behavior, and camera state forwarding. Compiled camera-policy tests check restart/generation guards. These do not certify an actual navigator, AVFoundation hardware, Connie, accessibility, or device performance; native builds and the recorded manual/device checklist remain required.
 
 ## 0.1.0-preview.1 — 2026-10-01
 
-Initial developer preview, prepared for the npm `next` channel. This is not a stable release; APIs and integration details may change before `0.1.0`. See [release notes](./RELEASE_NOTES.md) for the preview's requirements and limitations.
+Initial developer preview, published with the intended npm `next` channel. Registry inspection on 2026-10-02 also found `latest` pointing to this same preview after the first publication; that alias does not make it stable. APIs and integration details may change before `0.1.0`. See the [versioned preview notes](https://github.com/CAWRESTLER/react-native-duo/blob/v0.1.0-preview.1/RELEASE_NOTES.md) for that release's requirements and limitations.
 
 ### Added
 

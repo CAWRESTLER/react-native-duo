@@ -28,15 +28,15 @@ Metro selects and watches the root package's live `src/` files, so TypeScript/Re
 
 The navigation list stays on the left and detail stays on the right when the available Duo panes can fit both. Compact layouts expose a navigation button. Compare equivalent fold pose, window size, scroll position, tab, and appearance mode with the Swift lab when inspecting visual parity.
 
-| Screen | Controls and behavior to exercise | Package API |
-| --- | --- | --- |
-| **Overview** | Change pose/window size and watch real native size classes, local dimensions, region counts, and application scene capability update. | `DuoProvider`, `useDuo`, `DuoGeometryView` |
-| **Hinge** | Fold the simulator to update angle/status. Enable manual preview and move the slider to test the illustration; it does not change the hardware hinge. | `useDuoHinge` |
-| **Regions** | Toggle inactive regions, resize, and change pose. Orange division and pink occlusion overlays use coordinates measured in the displayed native view; inspect frame/margin/safe-area values below. | `DuoGeometryView` |
-| **Arrangements** | Switch Automatic, Split, and Overlay for the player/queue. Fold/resize and inspect whether panes split, overlap, hide, or change z-index. Player artwork and the track queue resize to their native panes. | `DuoArrangementView` |
-| **Adaptive Bars** | Choose Workbench, Inbox, or Profile. Toggle vertical bars, change compression, press actions, and open overflow where the system exposes it. Open Duo Studio to try immersive artwork, safe/edge-to-edge content, hide/restore all app bars, and optional layout diagnostics. | `DuoAdaptiveToolbar`, `DuoGeometryView` |
-| **Scenes** | Inspect scene capability, preview diagnostics, and enable the presentation companion when an eligible external display exists. The independent-window action is disabled and explains the remaining gap. | `useDuo`, `DuoSceneAccessory` |
-| **Camera** | Select the virtual front, physical outer/inner front, or rear source; enable preview after a user-triggered permission request. Inspect direction coordination, aspect ratios, rotation, sensor compensation, smart framing, and the outer-display camera cue. | `DuoCameraView`, `DuoSceneAccessory`, `useDuo` |
+| Screen            | Controls and behavior to exercise                                                                                                                                                                                                                                             | Package API                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Overview**      | Change pose/window size and watch real native size classes, local dimensions, region counts, and application scene capability update.                                                                                                                                         | `DuoProvider`, `useDuo`, `DuoGeometryView`     |
+| **Hinge**         | Fold the simulator to update angle/status. Enable manual preview and move the slider to test the illustration; it does not change the hardware hinge.                                                                                                                         | `useDuoHinge`                                  |
+| **Regions**       | Toggle inactive regions, resize, and change pose. Orange division and pink occlusion overlays use coordinates measured in the displayed native view; inspect frame/margin/safe-area values below.                                                                             | `DuoGeometryView`                              |
+| **Arrangements**  | Switch Automatic, Split, and Overlay for the player/queue. Fold/resize and inspect whether panes split, overlap, hide, or change z-index. Player artwork and the track queue resize to their native panes.                                                                    | `DuoArrangementView`                           |
+| **Adaptive Bars** | Choose Workbench, Inbox, or Profile. Toggle vertical bars, change compression, press actions, and open overflow where the system exposes it. Open Duo Studio to try immersive artwork, safe/edge-to-edge content, hide/restore all app bars, and optional layout diagnostics. | `DuoAdaptiveToolbar`, `DuoGeometryView`        |
+| **Scenes**        | Inspect scene capability, preview diagnostics, and enable the presentation companion when an eligible external display exists. The independent-window action is disabled and explains the remaining gap.                                                                      | `useDuo`, `DuoSceneAccessory`                  |
+| **Camera**        | Select the virtual front, physical outer/inner front, or rear source; enable preview after a user-triggered permission request. Inspect direction coordination, aspect ratios, rotation, sensor compensation, smart framing, and the outer-display camera cue.                | `DuoCameraView`, `DuoSceneAccessory`, `useDuo` |
 
 The full props/state reference and copyable package examples are in the [root README](../README.md#complete-api-reference). Screen descriptions explain why a feature exists; live state shows whether the current runtime, device, and accessory support it.
 
@@ -72,18 +72,32 @@ Before local measurements are available, or on fallback platforms, control place
 
 Hiding app bars does **not** hide the system status bar, camera area, home indicator, or other system-reserved regions. Full width is relative to this toolbar host: a visible sidebar and any parent layout still constrain it. Inbox and Profile continue to have tabs/navigation; they are not bar-free examples. The fallback hosts can demonstrate the content modes and ordinary buttons, but native Duo rails and system inset reporting require supported iOS.
 
+## Native navigation integration
+
+Open **Overview → Native navigation integration → Open navigation example**. This separate flow uses existing native tabs, nested native stacks/back buttons, and a real modal; `DuoNavigationToolbar` attaches only screen actions without creating another controller hierarchy.
+
+Its navigation root is `DraftProvider + Slot`. Each native tab owns one stack, and the notes stack presents its compose modal. A hidden outer stack around the tabs can compete for the adaptive bar; don't add one to this fixture just to present a modal.
+
+This fixture opts into `horizontalPresentation="inline"`: the package displays a native screen-local action toolbar above the measured tab safe area when horizontal, and uses the existing stack's vertical rail when vertical. The SDK 58 native-tabs wrapper did not display the stack's own horizontal toolbar, despite correct item attachment. This option does not create another header, back stack, or tab controller. The diagnostic includes the current action host so that limitation stays explicit.
+
+Edit the shared draft, scroll to the last row, fold/rotate, switch tabs, push detail and go back, then edit/dismiss the modal. Confirm the same draft, usable scrolling, a single header/back action, and correct toolbar ownership. The diagnostic displays `attachment` and actual applied insets; **Ownership** has no Duo actions so you can check for phantom toolbar space. Native tabs own selection; Duo does not shadow it with React-selected toolbar tabs.
+
+iOS adapter-backed screens have one foreground safe-area owner: `DuoNavigationToolbar`. The plain screen deliberately has no adapter and uses its own `SafeAreaView`. Native tabs' automatic inset adjustment and the child scroll view's automatic content/indicator adjustments are disabled. Root `SafeAreaProvider` measures without padding; modals have their own provider. Android/web add device edge protection around their horizontal fallback. The draft context sits above the route tree; it demonstrates in-memory preservation, not persistence after process termination. See the [complete safe-area/navigation guide](../docs/NAVIGATION.md) and [compatibility checklist](../docs/COMPATIBILITY.md).
+
 ## Source map
 
-| File | Purpose |
-| --- | --- |
-| `src/app/_layout.tsx` | Expo Router root, safe-area setup, and the shared `DuoProvider`. |
-| `src/app/index.tsx` | Opens the complete lab application. |
-| `src/components/duo-labs.tsx` | Selects one of the seven lab screens. |
-| `src/components/duo-shell.tsx` | Adaptive sidebar, compact navigation, and shared detail layout. |
-| `src/components/duo-ui.tsx` | Swift-style cards, symbols, metrics, controls, colors, and scroll containers. |
-| `src/components/labs/*-lab.tsx` | The actual examples of package components and callbacks. |
+| File                                     | Purpose                                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/app/_layout.tsx`                    | Expo Router root, safe-area setup, and the shared `DuoProvider`.                                |
+| `src/app/index.tsx`                      | Opens the complete lab application.                                                             |
+| `src/components/duo-labs.tsx`            | Selects one of the seven lab screens.                                                           |
+| `src/components/duo-shell.tsx`           | Adaptive sidebar, compact navigation, and shared detail layout.                                 |
+| `src/components/duo-ui.tsx`              | Swift-style cards, symbols, metrics, controls, colors, and scroll containers.                   |
+| `src/components/labs/*-lab.tsx`          | The actual examples of package components and callbacks.                                        |
 | `src/components/labs/toolbar-canvas.tsx` | Duo Studio artwork, region-aware canvas controls, options sheet, and opt-in layout diagnostics. |
-| `src/components/labs/canvas-layout.ts` | Pure, tested control-lane placement around local reserved regions, with safe-inset fallback. |
+| `src/components/labs/canvas-layout.ts`   | Pure, tested control-lane placement around local reserved regions, with safe-inset fallback.    |
+| `src/app/navigation/`                    | Native tabs, nested stack/detail, and a real modal route.                                       |
+| `src/components/navigation/`             | Screen toolbar/inset ownership, shared draft, and scrolling/accessibility exercise.             |
 
 ## Capabilities and remaining gaps
 
@@ -93,7 +107,7 @@ Hiding app bars does **not** hide the system status bar, camera area, home indic
 
 Automatic arrangement uses UIKit's default split sizing with both axes allowed. UIKit does not expose SwiftUI's exact `automaticArrangement` policy. Camera support provides preview and device controls; photo/video capture and JavaScript frame delivery are outside this package.
 
-Adaptive-bar compression is a preference for limited vertical space, not an unconditional hide/show switch. UIKit may show both tools and tabs when they fit. In vertical layouts with tabs, the package groups app actions in the native toolbar so they can compress together; horizontal and camera-only layouts retain leading and pinned navigation actions. This example uses Expo Router's `Slot` to avoid a second, header-hidden native navigation controller competing for the same rail.
+Adaptive-bar compression is a preference for limited vertical space, not an unconditional hide/show switch. UIKit may show both tools and tabs when they fit. In vertical layouts with tabs, the package groups app actions in the native toolbar so they can compress together; horizontal and camera-only layouts retain leading and pinned navigation actions. The original Duo Lab uses Expo Router's `Slot` to avoid a second, header-hidden native navigation controller competing for the same rail. The separate navigation fixture uses native tabs and stacks rather than the lab's standalone bar host.
 
 Disabling vertical bars switches this component to native horizontal UIKit bars; it does not change the app's status-bar axis. The placement card reads `DuoToolbarState.isVertical`, while `verticalBarEdge` remains the system-preferred trait and can still report a vertical edge.
 

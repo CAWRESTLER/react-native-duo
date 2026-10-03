@@ -30,6 +30,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Verify the recorded compatibility baseline
+        run: yarn check:compatibility
+
       - name: Lint files
         run: yarn lint
 

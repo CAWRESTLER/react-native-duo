@@ -2,20 +2,21 @@
 
 Build iPhone Duo experiences from React Native without writing your own UIKit or AVFoundation bridge.
 
-`0.1.0-preview.1` is the first developer preview, intended for evaluation and feedback rather than a stable compatibility promise. Its npm channel is `next`, not `latest`; APIs and integration details may change before a stable release. See the [preview release notes](./RELEASE_NOTES.md) for highlights, requirements, and limitations. The repository includes the complete Duo Lab example in `example/`; the npm package contains the reusable library and config plugin.
+`0.1.0-preview.2` is a developer preview for evaluation, not a stable compatibility promise. It adds existing-native-navigation integration, provider subscription isolation, and camera lifecycle hardening. Preview releases use npm's `next` channel; verify the current registry version rather than treating `latest` as a stability guarantee. See the [release notes](./RELEASE_NOTES.md) and [compatibility record](./docs/COMPATIBILITY.md). The repository includes the complete Duo Lab example in `example/`; the npm package contains the reusable library and config plugin.
 
 The package exposes small, typed React components and hooks for Duo-aware layout, live hinge and reserved-region data, UIKit's adaptive vertical toolbar, companion scene accessories, and the inner/outer camera system. The same components remain safe to render on Android, web, older iOS versions, and non-Duo iPhones through documented fallbacks.
 
 ## What you get
 
-| React Native API | Native API on iOS 27.1+ | Other platforms |
-| --- | --- | --- |
-| `DuoProvider` and `useDuo()` | `UIHingeInteraction`, reserved regions, Duo camera discovery, vertical-bar traits | Stable capability object with `isDuo: false` |
-| `DuoGeometryView` | Reserved regions and safe area in the measured native view's coordinates | Measured React Native width/height with no Duo regions |
-| `DuoArrangementView` | `UIArrangementViewController` with split and overlay arrangements | Flexbox split or overlay |
-| `DuoAdaptiveToolbar` | UIKit tab, navigation, and toolbar controllers with adaptive vertical-bar behavior | React Native action and tab bars |
-| `DuoCameraView` | Inner/outer Duo cameras, direction coordination, preview, and smart framing | Empty preview with an unsupported state callback |
-| `DuoSceneAccessory` | `UISceneAccessory` for external-display and camera-capture surfaces | No visible output and an unsupported state callback |
+| React Native API             | Native API on iOS 27.1+                                                                                | Other platforms                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `DuoProvider` and `useDuo()` | `UIHingeInteraction`, reserved regions, Duo camera discovery, vertical-bar traits                      | Stable capability object with `isDuo: false`           |
+| `DuoGeometryView`            | Reserved regions and safe area in the measured native view's coordinates                               | Measured React Native width/height with no Duo regions |
+| `DuoArrangementView`         | `UIArrangementViewController` with split and overlay arrangements                                      | Flexbox split or overlay                               |
+| `DuoAdaptiveToolbar`         | UIKit tab, navigation, and toolbar controllers with adaptive vertical-bar behavior                     | React Native action and tab bars                       |
+| `DuoNavigationToolbar`       | Actions attached to an existing native-stack screen; navigator retains headers, back buttons, and tabs | RN actions without a duplicate header/tab bar          |
+| `DuoCameraView`              | Inner/outer Duo cameras, direction coordination, preview, and smart framing                            | Empty preview with an unsupported state callback       |
+| `DuoSceneAccessory`          | `UISceneAccessory` for external-display and camera-capture surfaces                                    | No visible output and an unsupported state callback    |
 
 Every API is fully typed. You can use the package with Expo development builds or a bare React Native app.
 
@@ -56,11 +57,15 @@ The library and Duo Lab example use React Native `0.88.0-rc.1` and React `19.3.0
 
 The package's iOS deployment target follows the host React Native app. Runtime availability checks keep older iOS versions on safe fallbacks, but building the native target still requires the iOS 27.1 SDK.
 
+### Compatibility and validation
+
+The [compatibility guide](./docs/COMPATIBILITY.md) separates the locked baseline, automated checks, manual fold/rotation/scroll/navigation/accessibility/draft-preservation checks, and hardware-only paths. Connie and other consuming apps are unverified until their actual versions/native host are inspected and tested. Broad peer dependencies are not a claim that all RN/Expo versions work. Maintainers can run `yarn check:compatibility` to catch manifest/lockfile drift; passing it does not certify an app or device.
+
 ## Install
 
-Until the first publication, run `yarn pack:check` and then `npm pack --ignore-scripts` in this repository. Install the resulting `.tgz` file in your app with `npm install /absolute/path/to/package.tgz` and rebuild its native development client. This tests the actual distribution without publishing it. See the [maintainer publication steps](./CONTRIBUTING.md#first-publication-and-npm-setup).
+For local or not-yet-published changes, run `yarn pack:check` and then `npm pack --ignore-scripts` in this repository. Install the resulting `.tgz` file in your app with `npm install /absolute/path/to/package.tgz` and rebuild its native development client. This tests the actual distribution without publishing it. See the [maintainer publication steps](./CONTRIBUTING.md#publishing).
 
-After publication, explicitly opt into the preview channel with the command used by your app:
+To follow published previews, explicitly choose the preview channel with the command used by your app:
 
 ```sh
 npm install @cawrestler/react-native-duo@next
@@ -74,7 +79,7 @@ yarn add @cawrestler/react-native-duo@next
 pnpm add @cawrestler/react-native-duo@next
 ```
 
-To reproduce this preview exactly, use `@cawrestler/react-native-duo@0.1.0-preview.1` instead of `@next`. Preview evaluation requires a native rebuild; this is not an Expo Go or JavaScript-only update.
+To reproduce this version once published, use `@cawrestler/react-native-duo@0.1.0-preview.2` instead of `@next`. Tags can move; verify them with `npm view @cawrestler/react-native-duo dist-tags`. The first preview was also assigned `latest`; a retained alias is not a stable-support guarantee. Preview evaluation requires a native rebuild; this is not an Expo Go or JavaScript-only update.
 
 ### Expo
 
@@ -242,7 +247,9 @@ Use `DuoGeometryView` around the surface whose geometry you need. A region measu
 <DuoGeometryView style={{ height: 220 }} includeInactiveRegions>
   {(geometry) => (
     <View style={{ flex: 1, overflow: 'hidden' }}>
-      <Text>{geometry.width} × {geometry.height}</Text>
+      <Text>
+        {geometry.width} × {geometry.height}
+      </Text>
       {geometry.reservedRegions.map((region) => (
         <View
           key={region.id}
@@ -363,13 +370,13 @@ In automatic mode, `DuoAdaptiveToolbar` hosts your content in a real `UITabBarCo
 
 `placement` determines which native system owns an item:
 
-| Placement | Native behavior |
-| --- | --- |
-| `cancellationAction` | Leading navigation action, such as Close or Cancel. |
-| `pinnedTrailing` | Trailing navigation group outside overflow, except in the coordinated vertical-with-tabs layout described below. |
-| `bottomBar` | Toolbar action; this is the default for backwards compatibility. |
-| `tab` | Real native tab with controlled selection and optional badge. |
-| `overflow` | Actions from `menuItems` join native navigation overflow when the navigation bar is shown; vertical-with-tabs and navigation-hidden layouts use a native toolbar menu. |
+| Placement            | Native behavior                                                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cancellationAction` | Leading navigation action, such as Close or Cancel.                                                                                                                    |
+| `pinnedTrailing`     | Trailing navigation group outside overflow, except in the coordinated vertical-with-tabs layout described below.                                                       |
+| `bottomBar`          | Toolbar action; this is the default for backwards compatibility.                                                                                                       |
+| `tab`                | Real native tab with controlled selection and optional badge.                                                                                                          |
+| `overflow`           | Actions from `menuItems` join native navigation overflow when the navigation bar is shown; vertical-with-tabs and navigation-hidden layouts use a native toolbar menu. |
 
 `systemImage` is an SF Symbol name. Set `verticalSystemImage` when an action needs a different symbol on the vertical rail; the regular symbol remains its horizontal representation. `badge` accepts a string or number and works on tabs and supported bar items. `verticalBehavior="disabled"` uses native horizontal navigation, toolbar, and tab bars for this component. It does not replace the app's root controller or change its window-wide status-bar axis. `compressionBehavior` can be `automatic`, `preferBarItems`, or `preferTabBar`. Item `visibilityPriority` can be `low`, `standard`, or `high`.
 
@@ -418,7 +425,7 @@ const [toolbarState, setToolbarState] = useState<DuoToolbarState>();
 >
   <Canvas />
   {/* Protect important controls using measured insets or local regions. */}
-</DuoAdaptiveToolbar>
+</DuoAdaptiveToolbar>;
 ```
 
 `items={[]}` removes tools and tabs; `showsNavigationBar={false}` removes navigation chrome. When those bars are absent, the native package no longer invents an app-rail margin. The system can still reserve an edge for status/camera areas, so a bar-free screen in `safeArea` mode is not necessarily full width. `verticalBehavior="disabled"` only switches app bars to a horizontal layout; it is not a full-width setting.
@@ -430,6 +437,38 @@ Insets describe a conservative rectangle. When an immersive screen needs more pr
 “Entire host” means the bounds you give `DuoAdaptiveToolbar`, not automatically the physical display. A parent `SafeAreaView`, padding, sidebar, or split pane can still make that host smaller. To fill a window, give the host `flex: 1` without an outer safe-area inset, then protect foreground controls inside it. Avoid overriding the content wrapper's frame through `contentStyle`. On Android/web, the fallback stays horizontal and reports only its own visible bar heights; your app remains responsible for device/system safe-area protection there.
 
 The example keeps ordinary **Adaptive Bars** content safe while its grouped background fills the entire host. **More → Full-width canvas** (or **Open canvas experiment**) opens **Duo Studio**: a calm Day/Dusk/Night landscape that starts edge-to-edge with every app bar hidden. **Canvas options** lets you compare layouts, restore bars, and enable the normally hidden layout diagnostics. Its exit/options controls use local reserved regions, with measured native/hardware insets as a fallback. **Back to Workbench** restores safe content and the bars; selecting a visible tab also exits. See the [example guide](example/README.md#full-width-canvas-experiment) for the walkthrough. These demo choices do not change the package's `safeArea` default. Rebuild your native development app after updating this package; a JavaScript reload alone will not include the native spacing and touch-routing fixes.
+
+## Existing navigation and safe areas
+
+Use `DuoAdaptiveToolbar` for a standalone controller-owned host. For an app that already uses React Navigation native-stack or Expo Router `Stack`/`NativeTabs`, use **`DuoNavigationToolbar` inside each screen**. The existing navigator owns headers, back buttons/gestures, routes, native tabs, and root status preferences; Duo supplies only that screen's toolbar actions. Do not configure two toolbar owners on one screen.
+
+```tsx
+// Expo SDK 58: useIsFocused comes from expo-router.
+// Bare React Navigation: use your @react-navigation/native import.
+const focused = useIsFocused();
+
+<DuoNavigationToolbar
+  active={focused}
+  items={[{ id: 'edit', title: 'Edit', systemImage: 'square.and.pencil' }]}
+  onItemPress={openEditor}
+>
+  <ScrollView
+    contentInsetAdjustmentBehavior="never"
+    automaticallyAdjustContentInsets={false}
+    automaticallyAdjustsScrollIndicatorInsets={false}
+  >
+    <NoteContent />
+  </ScrollView>
+</DuoNavigationToolbar>;
+```
+
+On iOS default `safeArea` mode applies this actual screen host's insets **once**. Do not add them to that content again. With native tabs, disable their automatic content inset adjustment too. Android/web need device safe-area protection in addition to the fallback's action-row spacing. Modal content needs modal-local measurement, not the presenting window's insets.
+
+The tested native-tabs layout uses one stack per tab and presents its modal from that stack. Avoid a header-hidden outer stack around tabs plus their inner stacks: in the SDK 58 fixture it concealed the inner action even while `attachment` was `attached`. See the guide's controller layout before copying the example into a different hierarchy.
+
+For this wrapped native-tabs setup, use `horizontalPresentation="inline"` as the demo does: a real, screen-local UIKit toolbar sits above the measured native-tab safe area when horizontal, then yields to the existing stack's vertical rail. The default `navigator` mode uses the stack's own toolbar on both axes and requires a host that exposes it. This option does not create another header, tab bar, or navigation controller; [the guide](docs/NAVIGATION.md#horizontal-action-presentation) explains the observed SDK 58 limitation and inset ownership.
+
+The [complete navigation and safe-area guide](docs/NAVIGATION.md) covers root status placement, native tabs, nested stacks/back buttons, modal presentation, focus/ownership diagnostics, fallback rules, and draft preservation. Run **Overview → Open navigation example** in the demo to exercise the implementation. JS tabs are not converted into native adaptive rails; use native tabs for UIKit-owned tabs.
 
 ## Duo cameras and smart framing
 
@@ -474,6 +513,8 @@ Smart framing modes:
 - `apply`: monitor and apply the recommendation to the capture device.
 
 `DuoCameraView` is currently a preview and device-selection component. It does not capture photos, record video, or provide frames to JavaScript.
+
+The candidate adds session interruption/start/stop/runtime-error reporting. Observe `status`, `interrupted`, `interruptionReason`, and `errorDetails`, not just `running`. Normal interruptions resume only while mounted, active, foreground, and authorized. Media-services reset gets one automatic retry per explicit activation/configuration cycle; other runtime failures require explicit retry (`active={false}`, then `true`). The last `error`/`errorDetails` stays readable after automatic recovery until explicit retry/configuration, so a fast recovery cannot hide the diagnostic. `running`/`status` describe the current session; a recovered session can still have a historical error. Dynamic-aspect-ratio completion failures also report diagnostics. This is not physical-camera interruption certification; see the [compatibility checklist](docs/COMPATIBILITY.md).
 
 For example, a source and ratio picker can drive the preview without changing native code:
 
@@ -522,101 +563,107 @@ The examples above show the normal usage path. This section lists every public c
 
 Render one provider near the application root and allow it to fill the window.
 
-| Prop | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `children` | `ReactNode` | required | Application content that can consume Duo context. |
-| `includeInactiveRegions` | `boolean` | `false` | Includes reserved regions UIKit currently considers inactive. |
-| `onEnvironmentChange` | `(environment: DuoEnvironment) => void` | — | Observes the complete environment outside React context. |
-| `style` | `ViewProps['style']` | — | Styles the full-window native observer host. |
+The package supplies a stable `collapsable={false}` flex wrapper internally. Sibling content, a root `StatusBar`, and React Native `Modal` hosts are supported; consumers no longer need a single-child workaround. Keep the provider mounted across fold/rotation/navigation changes. It measures geometry but does not apply safe-area padding.
+
+| Prop                     | Type                                    | Default  | Purpose                                                       |
+| ------------------------ | --------------------------------------- | -------- | ------------------------------------------------------------- |
+| `children`               | `ReactNode`                             | required | Application content that can consume Duo context.             |
+| `includeInactiveRegions` | `boolean`                               | `false`  | Includes reserved regions UIKit currently considers inactive. |
+| `onEnvironmentChange`    | `(environment: DuoEnvironment) => void` | —        | Observes the complete environment outside React context.      |
+| `style`                  | `ViewProps['style']`                    | —        | Styles the full-window native observer host.                  |
 
 Context exports:
 
-| Export | Returns | Use it when |
-| --- | --- | --- |
-| `useDuo()` | `DuoEnvironment` | A screen needs several Duo capabilities. |
-| `useDuoHinge()` | `DuoHingeState` | Only fold status or angle affects the component. |
-| `useDuoReservedRegions()` | `DuoReservedRegion[]` | Content needs to avoid division or occlusion geometry. |
-| `useDuoCameras()` | `DuoCameraDevice[]` | A picker or diagnostic needs camera discovery. |
-| `defaultDuoEnvironment` | `DuoEnvironment` | Tests, reducers, or initial state need a complete safe fallback. |
+| Export                    | Returns               | Use it when                                                          |
+| ------------------------- | --------------------- | -------------------------------------------------------------------- |
+| `useDuo()`                | `DuoEnvironment`      | A screen needs several Duo capabilities.                             |
+| `useDuoHinge()`           | `DuoHingeState`       | Only fold status or angle affects the component.                     |
+| `useDuoReservedRegions()` | `DuoReservedRegion[]` | Content needs to avoid division or occlusion geometry.               |
+| `useDuoCameras()`         | `DuoCameraDevice[]`   | A picker or diagnostic needs camera discovery.                       |
+| `useDuoGeometry()`        | `DuoGeometryState`    | Provider-local geometry without subscribing to hinge/camera changes. |
+| `useDuoWindow()`          | `DuoWindowMetrics`    | Window metrics without subscribing to hinge/camera changes.          |
+| `defaultDuoEnvironment`   | `DuoEnvironment`      | Tests, reducers, or initial state need a complete safe fallback.     |
+
+Small hooks have separate subscription streams. Value-equivalent native JSON slices retain their references, so hinge-only angle events do not invalidate camera, geometry, region, or window subscriptions. `useDuo()` and `onEnvironmentChange` still observe the whole environment. Parent/prop updates can still rerender consumers: this is subscription isolation, not a blanket rerender guarantee or a measured performance claim. Use `DuoGeometryView` for nested view-local geometry rather than provider/window coordinates.
 
 `DuoEnvironment` fields:
 
-| Field | Meaning |
-| --- | --- |
-| `supportsDuoApis` | The runtime supports the compiled iOS Duo API surface. |
-| `isDuo` | The current hierarchy exposes a hinge, reserved region, or Duo camera. |
-| `platform` | `ios`, `android`, `web`, or `unknown`. |
-| `horizontalSizeClass`, `verticalSizeClass` | Native `compact`, `regular`, or `unspecified` UI traits. |
-| `supportsMultipleWindows` | App/runtime declaration of support for additional scenes, without React Native window creation. |
-| `geometry` | `DuoGeometryState` in the provider host's coordinates. |
-| `hinge` | `available`, `status`, `angleRadians`, and `angleDegrees`. |
-| `reservedRegions` | Each region's `id`, `kind`, `frame`, `margins`, and `isActive`. |
-| `verticalBarEdge` | System-preferred `leading`, `trailing`, `unspecified`, or `unavailable` edge; independent of a particular toolbar's opt-out. |
-| `cameras` | Camera `id`, `name`, `location`, conventional `position`, `deviceType`, and `isVirtual`. |
-| `window` | Width, height, scale, and safe-area insets in the observed window. |
+| Field                                      | Meaning                                                                                                                      |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `supportsDuoApis`                          | The runtime supports the compiled iOS Duo API surface.                                                                       |
+| `isDuo`                                    | The current hierarchy exposes a hinge, reserved region, or Duo camera.                                                       |
+| `platform`                                 | `ios`, `android`, `web`, or `unknown`.                                                                                       |
+| `horizontalSizeClass`, `verticalSizeClass` | Native `compact`, `regular`, or `unspecified` UI traits.                                                                     |
+| `supportsMultipleWindows`                  | App/runtime declaration of support for additional scenes, without React Native window creation.                              |
+| `geometry`                                 | `DuoGeometryState` in the provider host's coordinates.                                                                       |
+| `hinge`                                    | `available`, `status`, `angleRadians`, and `angleDegrees`.                                                                   |
+| `reservedRegions`                          | Each region's `id`, `kind`, `frame`, `margins`, and `isActive`.                                                              |
+| `verticalBarEdge`                          | System-preferred `leading`, `trailing`, `unspecified`, or `unavailable` edge; independent of a particular toolbar's opt-out. |
+| `cameras`                                  | Camera `id`, `name`, `location`, conventional `position`, `deviceType`, and `isVirtual`.                                     |
+| `window`                                   | Width, height, scale, and safe-area insets in the observed window.                                                           |
 
 ### `DuoGeometryView`
 
-| Prop | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `children` | `ReactNode \| ((geometry: DuoGeometryState) => ReactNode)` | required | Static content or a render function using geometry in this view's coordinates. |
-| `includeInactiveRegions` | `boolean` | `false` | Includes regions UIKit currently considers inactive. |
-| `onGeometryChange` | `(geometry: DuoGeometryState) => void` | — | Observes native/local geometry updates. |
-| `style` | `ViewProps['style']` | — | Gives the measured host its bounds. |
+| Prop                     | Type                                                       | Default  | Purpose                                                                        |
+| ------------------------ | ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------------ |
+| `children`               | `ReactNode \| ((geometry: DuoGeometryState) => ReactNode)` | required | Static content or a render function using geometry in this view's coordinates. |
+| `includeInactiveRegions` | `boolean`                                                  | `false`  | Includes regions UIKit currently considers inactive.                           |
+| `onGeometryChange`       | `(geometry: DuoGeometryState) => void`                     | —        | Observes native/local geometry updates.                                        |
+| `style`                  | `ViewProps['style']`                                       | —        | Gives the measured host its bounds.                                            |
 
 `DuoGeometryState` contains `native`, `width`, `height`, `safeAreaInsets`, and `reservedRegions`. Each region retains its frame, margins, kind, and active flag; its local frame may extend outside the measured bounds. This component reuses the native environment observer and does not add an independent application scene.
 
 ### `DuoArrangementView`
 
-| Prop | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `primary` | `ReactNode` | required | Primary React surface. |
-| `secondary` | `ReactNode` | required | Secondary React surface. |
-| `arrangement` | `automatic \| split \| overlay` | `split` | Chooses the system's default split policy, explicit split, or layered presentation. |
-| `axes` | `automatic \| horizontal \| vertical \| both` | `automatic` | Constrains axes UIKit can use. |
-| `primaryFraction` | `number` | `0.5` | Preferred primary size, clamped to `0.05...0.95`. |
-| `overlayEdge` | `top \| leading \| bottom \| trailing` | `trailing` | Positions the secondary overlay. |
-| `animated` | `boolean` | `true` | Animates arrangement changes. |
-| `onStateChange` | `(state: DuoArrangementState) => void` | — | Reports the chosen arrangement and live pane state. |
-| `style` | `ViewProps['style']` | — | Styles the arrangement host. |
-| `primaryStyle` | `ViewProps['style']` | — | Styles the primary wrapper. |
-| `secondaryStyle` | `ViewProps['style']` | — | Styles the secondary wrapper. |
+| Prop              | Type                                          | Default     | Purpose                                                                             |
+| ----------------- | --------------------------------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| `primary`         | `ReactNode`                                   | required    | Primary React surface.                                                              |
+| `secondary`       | `ReactNode`                                   | required    | Secondary React surface.                                                            |
+| `arrangement`     | `automatic \| split \| overlay`               | `split`     | Chooses the system's default split policy, explicit split, or layered presentation. |
+| `axes`            | `automatic \| horizontal \| vertical \| both` | `automatic` | Constrains axes UIKit can use.                                                      |
+| `primaryFraction` | `number`                                      | `0.5`       | Preferred primary size, clamped to `0.05...0.95`.                                   |
+| `overlayEdge`     | `top \| leading \| bottom \| trailing`        | `trailing`  | Positions the secondary overlay.                                                    |
+| `animated`        | `boolean`                                     | `true`      | Animates arrangement changes.                                                       |
+| `onStateChange`   | `(state: DuoArrangementState) => void`        | —           | Reports the chosen arrangement and live pane state.                                 |
+| `style`           | `ViewProps['style']`                          | —           | Styles the arrangement host.                                                        |
+| `primaryStyle`    | `ViewProps['style']`                          | —           | Styles the primary wrapper.                                                         |
+| `secondaryStyle`  | `ViewProps['style']`                          | —           | Styles the secondary wrapper.                                                       |
 
 Each pane in `DuoArrangementState` reports `zIndex`, `splitAxis`, and `isHidden`, plus an optional native `frame` (`DuoRect`) in the arrangement host's coordinates. The component uses native pane sizes internally so React Native reflows its children inside each pane. Observe the frame for diagnostics or coordinating sibling content; do not reposition the component's children yourself. The top-level `native` flag identifies the Duo arrangement-controller path.
 
 ### `DuoAdaptiveToolbar`
 
-| Prop | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `children` | `ReactNode` | required | Content hosted in the unobscured area by default, or the full host in `edgeToEdge` mode. |
-| `items` | `DuoToolbarItem[]` | required | Native tabs, navigation actions, toolbar actions, and menus. |
-| `title` | `string` | — | Navigation title when the navigation bar is shown. |
-| `tintColor` | `string` | system default | `#RRGGBB` or `#RRGGBBAA` color for native bar controls/selected tabs and fallback action labels. |
-| `verticalBehavior` | `automatic \| disabled` | `automatic` | Uses adaptive UIKit controllers or component-local native horizontal bars, without changing the app's status-bar axis. |
-| `compressionBehavior` | `automatic \| preferBarItems \| preferTabBar` | `automatic` | Chooses what UIKit preserves when vertical space is constrained. |
-| `showsNavigationBar` | `boolean` | `true` | Shows or hides the navigation title bar. |
-| `contentLayout` | `safeArea \| edgeToEdge` | `safeArea` | Applies unobscured content insets or fills the host; does not hide bars or change reported insets. |
-| `background` | `ReactNode` | — | Decorative, non-interactive full-host layer behind content and native bars. |
-| `onItemPress` | `(id: string) => void` | — | Receives the selected item ID. |
-| `onStateChange` | `(state: DuoToolbarState) => void` | — | Reports native mode, vertical placement, edge, content insets, and native host size. |
-| `style` | `ViewProps['style']` | — | Styles the native toolbar host. |
-| `contentStyle` | `ViewProps['style']` | — | Styles the React content wrapper. |
+| Prop                  | Type                                          | Default        | Purpose                                                                                                                |
+| --------------------- | --------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `children`            | `ReactNode`                                   | required       | Content hosted in the unobscured area by default, or the full host in `edgeToEdge` mode.                               |
+| `items`               | `DuoToolbarItem[]`                            | required       | Native tabs, navigation actions, toolbar actions, and menus.                                                           |
+| `title`               | `string`                                      | —              | Navigation title when the navigation bar is shown.                                                                     |
+| `tintColor`           | `string`                                      | system default | `#RRGGBB` or `#RRGGBBAA` color for native bar controls/selected tabs and fallback action labels.                       |
+| `verticalBehavior`    | `automatic \| disabled`                       | `automatic`    | Uses adaptive UIKit controllers or component-local native horizontal bars, without changing the app's status-bar axis. |
+| `compressionBehavior` | `automatic \| preferBarItems \| preferTabBar` | `automatic`    | Chooses what UIKit preserves when vertical space is constrained.                                                       |
+| `showsNavigationBar`  | `boolean`                                     | `true`         | Shows or hides the navigation title bar.                                                                               |
+| `contentLayout`       | `safeArea \| edgeToEdge`                      | `safeArea`     | Applies unobscured content insets or fills the host; does not hide bars or change reported insets.                     |
+| `background`          | `ReactNode`                                   | —              | Decorative, non-interactive full-host layer behind content and native bars.                                            |
+| `onItemPress`         | `(id: string) => void`                        | —              | Receives the selected item ID.                                                                                         |
+| `onStateChange`       | `(state: DuoToolbarState) => void`            | —              | Reports native mode, vertical placement, edge, content insets, and native host size.                                   |
+| `style`               | `ViewProps['style']`                          | —              | Styles the native toolbar host.                                                                                        |
+| `contentStyle`        | `ViewProps['style']`                          | —              | Styles the React content wrapper.                                                                                      |
 
 Every `DuoToolbarItem` supports:
 
-| Field | Type | Purpose |
-| --- | --- | --- |
-| `id` | `string` | Stable callback identity. |
-| `title` | `string` | Accessible and fallback label. |
-| `systemImage` | `string` | SF Symbol name on iOS. |
-| `verticalSystemImage` | `string` | Optional alternate SF Symbol when the action is placed vertically. |
-| `placement` | `cancellationAction \| pinnedTrailing \| bottomBar \| tab \| overflow` | Selects the native bar role; defaults to `bottomBar`. |
-| `axisBehavior` | `automatic \| horizontalOnly \| verticalPreferred` | Guides item placement as the bar changes axis. |
-| `visibilityPriority` | `low \| standard \| high` | Controls which actions survive compression. |
-| `badge` | `string \| number` | Adds a native badge to a tab or supported bar item. |
-| `menuItems` | `DuoToolbarMenuItem[]` | Declares the actions shown by an `overflow` item. |
-| `disabled` | `boolean` | Disables the action. |
-| `selected` | `boolean` | Displays the selected state. |
+| Field                 | Type                                                                   | Purpose                                                            |
+| --------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `id`                  | `string`                                                               | Stable callback identity.                                          |
+| `title`               | `string`                                                               | Accessible and fallback label.                                     |
+| `systemImage`         | `string`                                                               | SF Symbol name on iOS.                                             |
+| `verticalSystemImage` | `string`                                                               | Optional alternate SF Symbol when the action is placed vertically. |
+| `placement`           | `cancellationAction \| pinnedTrailing \| bottomBar \| tab \| overflow` | Selects the native bar role; defaults to `bottomBar`.              |
+| `axisBehavior`        | `automatic \| horizontalOnly \| verticalPreferred`                     | Guides item placement as the bar changes axis.                     |
+| `visibilityPriority`  | `low \| standard \| high`                                              | Controls which actions survive compression.                        |
+| `badge`               | `string \| number`                                                     | Adds a native badge to a tab or supported bar item.                |
+| `menuItems`           | `DuoToolbarMenuItem[]`                                                 | Declares the actions shown by an `overflow` item.                  |
+| `disabled`            | `boolean`                                                              | Disables the action.                                               |
+| `selected`            | `boolean`                                                              | Displays the selected state.                                       |
 
 Each `DuoToolbarMenuItem` has an `id`, `title`, optional `systemImage`, and optional `disabled` flag. Selecting it calls `onItemPress` with that menu item's ID.
 
@@ -626,56 +673,88 @@ Each `DuoToolbarMenuItem` has an `id`, `title`, optional `systemImage`, and opti
 
 ### `DuoCameraView`
 
-| Prop | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `location` | `inner \| outer` | `outer` | Selects a physical Duo camera when `direction` and `source` are absent. |
-| `direction` | `forward \| backward` | — | Tracks the camera facing that direction and overrides `source`/`location`. |
-| `source` | `virtualFront \| outerFront \| innerFront \| rear` | — | Explicit camera source when no relative direction is selected. |
-| `dynamicAspectRatio` | `string` | — | Supported aspect-ratio identifier obtained from camera state. |
-| `sensorOrientationCompensation` | `boolean` | `true` | Uses the device's sensor orientation compensation when supported. |
-| `active` | `boolean` | `true` | Runs or pauses the capture session. |
-| `requestPermission` | `boolean` | `false` | Requests access on a user-triggered transition to `true`. |
-| `mirrored` | `boolean` | `false` | Mirrors the native preview. |
-| `resizeMode` | `cover \| contain` | `cover` | Chooses preview-layer aspect handling. |
-| `smartFraming` | `off \| monitor \| apply` | `off` | Disables, observes, or applies framing recommendations. |
-| `onStateChange` | `(state: DuoCameraViewState) => void` | — | Reports permission, device, direction, session, and smart framing. |
-| `style` | `ViewProps['style']` | — | Sizes and positions the preview. |
+| Prop                            | Type                                               | Default | Purpose                                                                    |
+| ------------------------------- | -------------------------------------------------- | ------- | -------------------------------------------------------------------------- |
+| `location`                      | `inner \| outer`                                   | `outer` | Selects a physical Duo camera when `direction` and `source` are absent.    |
+| `direction`                     | `forward \| backward`                              | —       | Tracks the camera facing that direction and overrides `source`/`location`. |
+| `source`                        | `virtualFront \| outerFront \| innerFront \| rear` | —       | Explicit camera source when no relative direction is selected.             |
+| `dynamicAspectRatio`            | `string`                                           | —       | Supported aspect-ratio identifier obtained from camera state.              |
+| `sensorOrientationCompensation` | `boolean`                                          | `true`  | Uses the device's sensor orientation compensation when supported.          |
+| `active`                        | `boolean`                                          | `true`  | Runs or pauses the capture session.                                        |
+| `requestPermission`             | `boolean`                                          | `false` | Requests access on a user-triggered transition to `true`.                  |
+| `mirrored`                      | `boolean`                                          | `false` | Mirrors the native preview.                                                |
+| `resizeMode`                    | `cover \| contain`                                 | `cover` | Chooses preview-layer aspect handling.                                     |
+| `smartFraming`                  | `off \| monitor \| apply`                          | `off`   | Disables, observes, or applies framing recommendations.                    |
+| `onStateChange`                 | `(state: DuoCameraViewState) => void`              | —       | Reports permission, device, direction, session, and smart framing.         |
+| `style`                         | `ViewProps['style']`                               | —       | Sizes and positions the preview.                                           |
 
 `DuoCameraViewState` reports `supported`, `available`, `running`, `permission`, physical `location`, current `direction`/`source`, forward/backward camera ID maps, selected device ID/name, `previewRotation`, `sensorCompensationSupported`, `sensorCompensationDisabled`, supported `aspectRatios`, the `selectedAspectRatio`, smart-framing support/monitoring/mode/recommendation, and a nullable error message. Unsupported or unavailable metadata uses empty lists or `null` values.
 
 Permission values are `undetermined`, `denied`, `restricted`, or `granted`. A smart-framing recommendation contains an aspect-ratio string and zoom factor.
 
+The candidate also reports these optional, additive lifecycle fields:
+
+| State field              | Values                                                                                                                                  | Meaning                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `status`                 | `idle \| configuring \| running \| stopped \| interrupted \| error \| unsupported`                                                      | Current capture-session lifecycle.                                     |
+| `interrupted`            | `boolean`                                                                                                                               | Whether the session is temporarily interrupted.                        |
+| `interruptionReason`     | `background \| audioDeviceInUse \| videoDeviceInUse \| multipleForegroundApps \| systemPressure \| sensitiveContent \| unknown \| null` | Readable interruption reason.                                          |
+| `interruptionReasonCode` | `number \| null`                                                                                                                        | Original AVFoundation reason code when available.                      |
+| `errorDetails`           | `{ code, nativeDomain, nativeCode, recoverable } \| null`                                                                               | Structured diagnostic alongside the existing nullable `error` message. |
+
+`recoverable` means the cause may permit recovery, not that the camera has already recovered. Read `status`/`running` for current operation. An automatically recovered session retains its last error until an explicit retry or configuration change. Consumers supporting older previews should handle these fields being absent.
+
+Diagnostic `code` values are `configurationFailed`, `deviceUnavailable`, `unsupportedOS`, `aspectRatioUnsupported`, `aspectRatioFailed`, `smartFramingFailed`, `runtimeError`, and `mediaServicesReset`. `nativeDomain` is a nullable string, `nativeCode` a nullable number, and `recoverable` a boolean. Preserve the human-readable `error` when showing a failure to users; use the structured fields for logging and recovery decisions.
+
+### `DuoNavigationToolbar`
+
+| Prop                     | Type                                          | Default     | Purpose                                                                                                         |
+| ------------------------ | --------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `children`               | `ReactNode`                                   | required    | This screen's content.                                                                                          |
+| `items`                  | `DuoNavigationToolbarItem[]`                  | required    | `bottomBar` or `overflow` actions; no header/tab placements.                                                    |
+| `active`                 | `boolean`                                     | `true`      | Pass navigator focus state; blurred screens relinquish ownership.                                               |
+| `tintColor`              | `string`                                      | system      | Hex tint applied to owned action items only.                                                                    |
+| `compressionBehavior`    | `automatic \| preferBarItems \| preferTabBar` | `automatic` | Preference on the existing native screen while owning its actions.                                              |
+| `horizontalPresentation` | `navigator \| inline`                         | `navigator` | iOS stack-owned horizontal toolbar or measured screen-local UIKit toolbar; both use the existing vertical rail. |
+| `contentLayout`          | `safeArea \| edgeToEdge`                      | `safeArea`  | Package-owned insets or explicit app-owned foreground protection.                                               |
+| `background`             | `ReactNode`                                   | —           | Non-interactive, accessibility-hidden full-host decoration.                                                     |
+| `onItemPress`            | `(id: string) => void`                        | —           | Action or nested menu ID.                                                                                       |
+| `onStateChange`          | `(state: DuoNavigationToolbarState) => void`  | —           | Axis, actual host bounds/insets, and attachment diagnostics.                                                    |
+| `style`, `contentStyle`  | `ViewProps['style']`                          | —           | Host/content styling; don't override the managed content frame.                                                 |
+
+State adds `attachment`: `attached`, `inactive`, `missingNativeStack`, `conflict`, or `fallback`. Optional `actionPresentation` identifies `navigationController`, `inline`, `none`, or `fallback`; attachment describes ownership, not guaranteed item visibility. Another toolbar owner causes `conflict`, not takeover. Headers/back/tabs/vertical opt-out remain navigator-owned; the adapter deliberately has no `title`, `showsNavigationBar`, tab-selection, or root status-bar setting. Item symbols, badges, selection, axis/visibility preferences, and menus match `DuoToolbarItem`. See [the navigation guide](docs/NAVIGATION.md) for complete integration rules.
+
 ### `DuoSceneAccessory`
 
-| Prop | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `kind` | `externalDisplay \| cameraCapture` | required | Chooses the companion system surface. |
-| `content` | `DuoSceneAccessoryContent` | required | Declarative title, subtitle, SF Symbol, and colors. |
-| `enabled` | `boolean` | `true` | Enables or disables the mounted accessory's registration. |
-| `onStateChange` | `(state: DuoSceneAccessoryState) => void` | — | Reports support, registration, availability, enabled state, and kind. |
+| Prop            | Type                                      | Default  | Purpose                                                               |
+| --------------- | ----------------------------------------- | -------- | --------------------------------------------------------------------- |
+| `kind`          | `externalDisplay \| cameraCapture`        | required | Chooses the companion system surface.                                 |
+| `content`       | `DuoSceneAccessoryContent`                | required | Declarative title, subtitle, SF Symbol, and colors.                   |
+| `enabled`       | `boolean`                                 | `true`   | Enables or disables the mounted accessory's registration.             |
+| `onStateChange` | `(state: DuoSceneAccessoryState) => void` | —        | Reports support, registration, availability, enabled state, and kind. |
 
 The component unregisters on unmount. Setting `enabled={false}` disables an existing registration, so `registered` may remain `true` while `enabled` is `false`; `available` is the system's separate eligibility state.
 
 `content.title` is required. Native color props accept `#RRGGBB` and `#RRGGBBAA` hex strings, using the same alpha-last format as React Native/CSS. The complete content shape is:
 
-| Field | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `title` | `string` | required | Main companion-surface message. |
-| `subtitle` | `string` | empty | Optional secondary message. |
-| `systemImage` | `string` | `rectangle.on.rectangle` | SF Symbol above the text. |
-| `backgroundColor` | `string` | dark navy | Solid background or the first gradient color. |
-| `foregroundColor` | `string` | white | Title, symbol, and subtitle base color. |
-| `gradientEndColor` | `string` | — | Enables a top-leading to bottom-trailing diagonal gradient. |
-| `eyebrow` | `string` | empty | Bold 12-point text above the title with 3-point letter spacing. |
-| `eyebrowColor` | `string` | foreground color | Color for the eyebrow text. |
-| `titleFontSize` | `number` | system large title | Custom bold title size in points. |
-| `titleRounded` | `boolean` | `false` | Uses the rounded system font design for the title. |
-| `subtitleFontSize` | `number` | system title 3 | Custom subtitle size in points. |
-| `subtitleSemibold` | `boolean` | `false` | Uses a semibold subtitle font. |
-| `subtitleOpacity` | `number` | `0.72` | Subtitle color opacity, clamped to `0...1`. |
-| `spacing` | `number` | `14` | Vertical spacing in points between arranged elements. |
-| `symbolSize` | `number` | `72` | Symbol size in points. |
-| `hideSymbol` | `boolean` | `false` | Removes the symbol from the companion content. |
+| Field              | Type      | Default                  | Purpose                                                         |
+| ------------------ | --------- | ------------------------ | --------------------------------------------------------------- |
+| `title`            | `string`  | required                 | Main companion-surface message.                                 |
+| `subtitle`         | `string`  | empty                    | Optional secondary message.                                     |
+| `systemImage`      | `string`  | `rectangle.on.rectangle` | SF Symbol above the text.                                       |
+| `backgroundColor`  | `string`  | dark navy                | Solid background or the first gradient color.                   |
+| `foregroundColor`  | `string`  | white                    | Title, symbol, and subtitle base color.                         |
+| `gradientEndColor` | `string`  | —                        | Enables a top-leading to bottom-trailing diagonal gradient.     |
+| `eyebrow`          | `string`  | empty                    | Bold 12-point text above the title with 3-point letter spacing. |
+| `eyebrowColor`     | `string`  | foreground color         | Color for the eyebrow text.                                     |
+| `titleFontSize`    | `number`  | system large title       | Custom bold title size in points.                               |
+| `titleRounded`     | `boolean` | `false`                  | Uses the rounded system font design for the title.              |
+| `subtitleFontSize` | `number`  | system title 3           | Custom subtitle size in points.                                 |
+| `subtitleSemibold` | `boolean` | `false`                  | Uses a semibold subtitle font.                                  |
+| `subtitleOpacity`  | `number`  | `0.72`                   | Subtitle color opacity, clamped to `0...1`.                     |
+| `spacing`          | `number`  | `14`                     | Vertical spacing in points between arranged elements.           |
+| `symbolSize`       | `number`  | `72`                     | Symbol size in points.                                          |
+| `hideSymbol`       | `boolean` | `false`                  | Removes the symbol from the companion content.                  |
 
 For the Swift lab's camera cue, use declarative typography rather than another React screen:
 
@@ -725,7 +804,7 @@ The repository's official example is **Duo Lab RN**, a seven-screen recreation o
 
 1. **Overview** — capability detection, window metrics, live device information, and links to the six experiments.
 2. **Hinge** — angle, fold status, and `useDuoHinge()` updates while folding.
-3. **Regions** — division and occlusion geometry, inactive regions, margins, and `useDuoReservedRegions()`.
+3. **Regions** — division and occlusion geometry, inactive regions, margins, and view-local `DuoGeometryView` measurements.
 4. **Arrangements** — native split/overlay placement, axes, sizing, animation, and live pane state through `DuoArrangementView`.
 5. **Adaptive Bars** — real native tabs and tools, badges, overflow, compression, and `DuoAdaptiveToolbar` placement.
 6. **Scenes** — external-display and camera-capture accessories through `DuoSceneAccessory`, with explicit notes about independent SwiftUI windows.
@@ -750,16 +829,19 @@ yarn example:ios:clean --device "iPhone Duo"
 ## API exports
 
 ```ts
-DuoProvider
-DuoGeometryView
-useDuo
-useDuoHinge
-useDuoReservedRegions
-useDuoCameras
-DuoArrangementView
-DuoAdaptiveToolbar
-DuoCameraView
-DuoSceneAccessory
+DuoProvider;
+DuoGeometryView;
+useDuo;
+useDuoHinge;
+useDuoGeometry;
+useDuoWindow;
+useDuoReservedRegions;
+useDuoCameras;
+DuoArrangementView;
+DuoAdaptiveToolbar;
+DuoNavigationToolbar;
+DuoCameraView;
+DuoSceneAccessory;
 ```
 
 All public prop, state, and value types are exported from the package root.
@@ -776,7 +858,7 @@ Keep `verticalBehavior="automatic"`, render the toolbar as a full-screen contain
 
 **Native toolbar groups overlap**
 
-`DuoAdaptiveToolbar` owns its navigation and tab controllers. Avoid wrapping that host in another native navigation controller solely to hide its header: both controllers can compete for the vertical bar. The single-route Expo example uses Expo Router's `Slot` rather than a header-hidden `Stack` for this reason. When integrating an existing native navigator, verify the container hierarchy and bar ownership across Duo poses.
+`DuoAdaptiveToolbar` owns its navigation/tab hierarchy and is for standalone hosts. Inside existing native-stack screens use `DuoNavigationToolbar` instead, passing focus state. The original lab keeps its standalone hierarchy; **Overview → Open navigation example** demonstrates native tabs/stacks/modal ownership. See [the complete integration guide](docs/NAVIGATION.md).
 
 **The Expo app cannot find the native view**
 
@@ -803,6 +885,7 @@ This repository includes its own `yarn.lock`. Run Yarn from the repository root 
 - [Development and release workflow](./CONTRIBUTING.md)
 - [Changelog](./CHANGELOG.md)
 - [Preview release notes](./RELEASE_NOTES.md)
+- [Compatibility baseline and manual/device checklist](./docs/COMPATIBILITY.md)
 - [Issue tracker](https://github.com/CAWRESTLER/react-native-duo/issues)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 
@@ -810,9 +893,9 @@ The npm package includes the podspec, iOS sources, Android fallback package, Exp
 
 Develop on feature branches and open pull requests to `main`. Dependency installation installs local pre-push safeguards that block direct `main` updates and run `yarn validate` for feature/tag updates. The server requires an up-to-date pull request and `CI Required`, which gates all six lint/test/library/Android/iOS/web jobs. The solo owner needs no second person's approving review, and the server ruleset has no bypass.
 
-Run `yarn validate` to check lint, library/example types, repository/release safeguards, library tests, and the built npm tarball. The distribution check verifies exported entry points, types, native/codegen sources, the podspec, and Expo plugin, and excludes demo/build outputs. Native/device and visual checks remain required before a release.
+Run `yarn validate` to check the recorded compatibility baseline, lint, library/example types, repository/release safeguards, library tests, and the built npm tarball. The distribution check verifies exported entry points, types, native/codegen sources, the podspec, and Expo plugin, and excludes demo/build outputs. Native/device, accessibility, draft-preservation, and visual checks remain required before a release; automated success alone does not certify a consuming app.
 
-Prepare version, changelog, and `RELEASE_NOTES.md` changes on `codex/release-*` or `release-*` branches and merge them through a pull request. Local `release-it` has automatic commit/tag/push and npm/GitHub publishing disabled. After npm setup, publishing uses the manual **Publish npm** workflow on the exact merged `main` commit with green CI, a deliberate `next`/`latest` choice, testing confirmation, and owner approval of the `npm` environment. The workflow verifies that the reviewed release-notes heading matches the version and uses that file as the GitHub release body. Preview versions must use `next` and are marked as GitHub prereleases, not latest releases. The package is currently unpublished; [first-publication authentication and trusted-publisher setup](./CONTRIBUTING.md#first-publication-and-npm-setup) must be completed by its maintainer.
+Prepare version, changelog, and `RELEASE_NOTES.md` changes on `release-*` branches and merge them through a pull request. Local `release-it` has automatic commit/tag/push and npm/GitHub publishing disabled. After confirming npm publisher setup, publishing uses the manual **Publish npm** workflow on the exact merged `main` commit with green CI, a deliberate channel, testing confirmation, and owner approval of the `npm` environment. It verifies baseline alignment and version-matched reviewed notes, then uses those notes as the GitHub release body. Previews must use `next` and are marked as GitHub prereleases; publishing a new preview does not move the initial preview's retained `latest` alias. See [publisher setup and release workflow](./CONTRIBUTING.md#npm-setup-after-first-publication). No validation or local preparation publishes automatically.
 
 ## License
 

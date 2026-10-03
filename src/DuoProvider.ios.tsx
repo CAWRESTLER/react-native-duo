@@ -1,7 +1,12 @@
-import { useCallback, useContext, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { useCallback, useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { DuoContext, defaultDuoEnvironment } from './context';
+import {
+  createDuoEnvironmentStore,
+  DuoContext,
+  defaultDuoEnvironment,
+  type DuoEnvironmentStore,
+} from './context';
 import NativeDuoEnvironmentView from './native/DuoEnvironmentNativeComponent';
 import { parseNativePayload, type NativePayloadEvent } from './native/events';
 import type { DuoEnvironment, DuoProviderProps } from './types';
@@ -12,33 +17,39 @@ export function DuoProvider({
   onEnvironmentChange,
   style,
 }: DuoProviderProps) {
-  const [environment, setEnvironment] = useState<DuoEnvironment>({
-    ...defaultDuoEnvironment,
-    platform: 'ios',
-  });
-  const environmentRef = useRef(environment);
+  const storeRef = useRef<DuoEnvironmentStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createDuoEnvironmentStore({
+      ...defaultDuoEnvironment,
+      platform: 'ios',
+    });
+  }
+  const store = storeRef.current;
 
   const handleEnvironmentChange = useCallback(
     ({ nativeEvent }: { nativeEvent: NativePayloadEvent }) => {
       const next = parseNativePayload<DuoEnvironment>(
         nativeEvent.payload,
-        environmentRef.current
+        store.getSnapshot()
       );
-      environmentRef.current = next;
-      setEnvironment(next);
-      onEnvironmentChange?.(next);
+      const snapshot = store.update(next);
+      onEnvironmentChange?.(snapshot);
     },
-    [onEnvironmentChange]
+    [onEnvironmentChange, store]
   );
 
   return (
-    <DuoContext.Provider value={environment}>
+    <DuoContext.Provider value={store}>
       <NativeDuoEnvironmentView
         includeInactiveRegions={includeInactiveRegions}
         onEnvironmentChange={handleEnvironmentChange}
         style={[styles.fill, style]}
       >
-        {children}
+        {/* The native sensor sizes exactly one child. Keep this host stable and
+            non-collapsing when consumers supply siblings or RN Modal hosts. */}
+        <View collapsable={false} style={styles.fill}>
+          {children}
+        </View>
       </NativeDuoEnvironmentView>
     </DuoContext.Provider>
   );
@@ -48,18 +59,11 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
 });
 
-export function useDuo() {
-  return useContext(DuoContext);
-}
-
-export function useDuoHinge() {
-  return useDuo().hinge;
-}
-
-export function useDuoReservedRegions() {
-  return useDuo().reservedRegions;
-}
-
-export function useDuoCameras() {
-  return useDuo().cameras;
-}
+export {
+  useDuo,
+  useDuoCameras,
+  useDuoGeometry,
+  useDuoHinge,
+  useDuoReservedRegions,
+  useDuoWindow,
+} from './context';
