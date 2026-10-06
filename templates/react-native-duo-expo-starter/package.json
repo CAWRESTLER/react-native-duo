@@ -1,0 +1,34 @@
+{
+  "name": "react-native-duo-expo-starter",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cawrestler/react-native-duo": "0.1.0-preview.2",
+    "expo": "~58.0.0-preview.7",
+    "expo-build-properties": "~58.0.7",
+    "expo-constants": "~58.0.7",
+    "expo-dev-client": "~58.0.7",
+    "expo-linking": "~58.0.7",
+    "expo-router": "~58.0.8",
+    "expo-status-bar": "~58.0.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0-rc.1",
+    "react-native-gesture-handler": "~3.2.1",
+    "react-native-reanimated": "4.7.0",
+    "react-native-safe-area-context": "~5.9.1",
+    "react-native-screens": "~4.28.0",
+    "react-native-worklets": "0.13.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "typescript": "~6.0.3"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "React Native Duo Starter",
+    "slug": "react-native-duo-expo-starter",
+    "version": "1.0.0",
+    "orientation": "default",
+    "scheme": "react-native-duo-starter",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.cawrestler.reactnativeduo.starter"
+    },
+    "android": {
+      "package": "dev.cawrestler.reactnativeduo.starter"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "@cawrestler/react-native-duo",
+        {
+          "cameraPermission": "Allow this starter app to use Duo cameras when you extend the camera demo."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "usePrecompiledModules": false
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
