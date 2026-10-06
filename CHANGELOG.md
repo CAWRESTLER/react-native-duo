@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- [Apple Duo API coverage matrix](./docs/API_COVERAGE.md) with supported, partial, fallback, and not-supported rows vs UIKit / AVFoundation / scene APIs.
+- `scripts/resolve-cxx.js` so native C++ policy tests compile on Linux CI and cloud environments where the default `c++` driver is Clang without libstdc++ headers.
+
+### Changed
+
+- Expo config plugin is registered through `package.json` `"expo"."plugin"` for standard autodiscovery alongside the documented `plugins` array entry.
+
 ## 0.1.0-preview.2 — 2026-10-03
 
 Developer preview targeting npm `next`, not a stable release. Publication is a separate approved workflow step; preparing this changelog does not publish. Before release preparation, both npm tags pointed to `0.1.0-preview.1` as checked on 2026-10-03. This release does not move that initial preview's `latest` alias.

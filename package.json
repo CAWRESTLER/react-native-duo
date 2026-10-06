@@ -72,6 +72,9 @@
     "url": "https://github.com/CAWRESTLER/react-native-duo/issues"
   },
   "homepage": "https://github.com/CAWRESTLER/react-native-duo#readme",
+  "expo": {
+    "plugin": "./app.plugin.js"
+  },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public",
