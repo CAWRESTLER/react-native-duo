@@ -1,10 +1,62 @@
 # @cawrestler/react-native-duo
 
-Build iPhone Duo experiences from React Native without writing your own UIKit or AVFoundation bridge.
+Native iPhone Duo UI from React Native and Expo—arrangements, adaptive vertical toolbar, hinge and reserved regions, inner/outer cameras, and scene accessories—with documented fallbacks on Android, web, older iOS, and non-Duo iPhones.
 
-`0.1.0-preview.2` is a developer preview for evaluation, not a stable compatibility promise. It adds existing-native-navigation integration, provider subscription isolation, and camera lifecycle hardening. Preview releases use npm's `next` channel; verify the current registry version rather than treating `latest` as a stability guarantee. See the [release notes](./RELEASE_NOTES.md) and [compatibility record](./docs/COMPATIBILITY.md). The repository includes the complete Duo Lab example in `example/`; the npm package contains the reusable library and config plugin.
+You do not need Duo hardware to start: run the **iPhone Duo** simulator in **Xcode 27.1+** to exercise fold geometry, regions, and adaptive bars without a $1999 phone.
 
-The package exposes small, typed React components and hooks for Duo-aware layout, live hinge and reserved-region data, UIKit's adaptive vertical toolbar, companion scene accessories, and the inner/outer camera system. The same components remain safe to render on Android, web, older iOS versions, and non-Duo iPhones through documented fallbacks.
+<!-- DEMO_GIF: replace with docs/assets/duo-demo.gif -->
+
+_Demo GIF placeholder — split arrangement and vertical toolbar on iPhone Duo simulator._
+
+## Try in 5 minutes
+
+Template: [react-native-duo-expo-starter](https://github.com/CAWRESTLER/react-native-duo-expo-starter) · Full lab: [`example/`](./example/) · npm: [`@cawrestler/react-native-duo`](https://www.npmjs.com/package/@cawrestler/react-native-duo)
+
+```sh
+npm install @cawrestler/react-native-duo@next
+npx expo install expo-build-properties
+npx expo run:ios
+```
+
+Add the [config plugin](#expo) to `app.json`, pick **iPhone Duo** in the simulator, and rebuild after native changes (Expo Go is not supported).
+
+```tsx
+import {
+  DuoArrangementView,
+  DuoProvider,
+  useDuo,
+} from '@cawrestler/react-native-duo';
+import { Text, View } from 'react-native';
+
+export default function App() {
+  return (
+    <DuoProvider>
+      <Workspace />
+    </DuoProvider>
+  );
+}
+
+function Workspace() {
+  const { isDuo, hinge } = useDuo();
+  return (
+    <DuoArrangementView
+      primary={<Pane title="Primary" detail={isDuo ? 'Duo window' : 'Fallback layout'} />}
+      secondary={<Pane title="Secondary" detail={`Hinge: ${hinge.status}`} />}
+    />
+  );
+}
+
+function Pane({ title, detail }: { title: string; detail: string }) {
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+      <Text>{title}</Text>
+      <Text>{detail}</Text>
+    </View>
+  );
+}
+```
+
+Preview releases ship on npm's `next` tag (`0.1.0-preview.2` at time of writing)—not a stable compatibility promise. See [release notes](./RELEASE_NOTES.md) and [compatibility](./docs/COMPATIBILITY.md). Deeper guides: [navigation](./docs/NAVIGATION.md), [API coverage matrix](./docs/API_COVERAGE.md).
 
 ## What you get
 
@@ -18,9 +70,29 @@ The package exposes small, typed React components and hooks for Duo-aware layout
 | `DuoCameraView`              | Inner/outer Duo cameras, direction coordination, preview, and smart framing                            | Empty preview with an unsupported state callback       |
 | `DuoSceneAccessory`          | `UISceneAccessory` for external-display and camera-capture surfaces                                    | No visible output and an unsupported state callback    |
 
-Every API is fully typed. You can use the package with Expo development builds or a bare React Native app.
+Every API is fully typed. Use Expo development builds or a bare React Native app with the New Architecture enabled.
 
-### Capability checklist
+## Apple API coverage (supported / not supported)
+
+The [full coverage matrix](./docs/API_COVERAGE.md) maps each Apple Duo surface to this package's React Native API, with platform fallbacks and hardware-only boundaries. Summary:
+
+| Apple Duo surface | Native reference (iOS 27.1+) | Package API | Status |
+| ----------------- | ---------------------------- | ----------- | ------ |
+| Hinge angle and fold status | `UIHingeInteraction` | `DuoProvider`, `useDuoHinge()` | Supported |
+| Division / occlusion geometry | `UIView.reservedRegions` | `useDuoReservedRegions()`, `DuoGeometryView` | Supported |
+| Split / overlay panes | `UIArrangementViewController` | `DuoArrangementView` | Supported |
+| Adaptive vertical toolbars and tabs | Navigation + toolbar + tab controllers | `DuoAdaptiveToolbar`, `DuoNavigationToolbar` | Supported |
+| Screen actions on existing native stack | Navigation item / toolbar on stack VC | `DuoNavigationToolbar` | Supported |
+| Inner / outer / virtual front camera preview | `AVCaptureDeviceDirectionCoordinator`, Duo devices | `DuoCameraView`, `useDuoCameras()` | Supported (preview only) |
+| External display / camera-capture accessory | `UISceneAccessory` | `DuoSceneAccessory` | Supported (declarative content) |
+| Multiple scenes / second window | `UIWindowSceneActivation`, SwiftUI `WindowGroup` | — | **Not supported** |
+| Photo / video capture / frames to JS | AVFoundation capture outputs | — | **Not supported** |
+| SwiftUI-only arrangement / sheet placement policies | SwiftUI `ArrangementView`, `presentationPlacement` | Partial / not supported | See [matrix](./docs/API_COVERAGE.md) |
+| Custom standalone `UIToolbar` / `UITabBar` | — | — | **Not supported** (use package controllers) |
+
+Official overview: [Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo).
+
+## Capability checklist
 
 - **Device awareness:** detect whether the Duo API surface exists separately from whether the current hardware/window is actually Duo.
 - **Live hinge:** availability, closed/partially-open/fully-open status, and angle in radians and degrees.
@@ -44,26 +116,6 @@ The package covers the core Duo surfaces, but it does not yet expose every Swift
 - Vertical-bar opt-out applies to this package's controls. The app's root controller separately owns the window-wide status-bar axis.
 
 These are API gaps, not silent fallbacks. Components report support and live native state so an app can explain or disable unavailable behavior.
-
-## Apple API coverage (supported / not supported)
-
-The [full coverage matrix](./docs/API_COVERAGE.md) maps each Apple Duo surface to this package's React Native API, with platform fallbacks and hardware-only boundaries. Summary:
-
-| Apple Duo surface | Native reference (iOS 27.1+) | Package API | Status |
-| ----------------- | ---------------------------- | ----------- | ------ |
-| Hinge angle and fold status | `UIHingeInteraction` | `DuoProvider`, `useDuoHinge()` | Supported |
-| Division / occlusion geometry | `UIView.reservedRegions` | `useDuoReservedRegions()`, `DuoGeometryView` | Supported |
-| Split / overlay panes | `UIArrangementViewController` | `DuoArrangementView` | Supported |
-| Adaptive vertical toolbars and tabs | Navigation + toolbar + tab controllers | `DuoAdaptiveToolbar`, `DuoNavigationToolbar` | Supported |
-| Screen actions on existing native stack | Navigation item / toolbar on stack VC | `DuoNavigationToolbar` | Supported |
-| Inner / outer / virtual front camera preview | `AVCaptureDeviceDirectionCoordinator`, Duo devices | `DuoCameraView`, `useDuoCameras()` | Supported (preview only) |
-| External display / camera-capture accessory | `UISceneAccessory` | `DuoSceneAccessory` | Supported (declarative content) |
-| Multiple scenes / second window | `UIWindowSceneActivation`, SwiftUI `WindowGroup` | — | **Not supported** |
-| Photo / video capture / frames to JS | AVFoundation capture outputs | — | **Not supported** |
-| SwiftUI-only arrangement / sheet placement policies | SwiftUI `ArrangementView`, `presentationPlacement` | Partial / not supported | See [matrix](./docs/API_COVERAGE.md) |
-| Custom standalone `UIToolbar` / `UITabBar` | — | — | **Not supported** (use package controllers) |
-
-Official overview: [Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo).
 
 ## Requirements
 
