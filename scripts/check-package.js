@@ -71,6 +71,7 @@ async function checkPackage() {
       'ios/RNDuoNavigationToolbarVisibility.h',
       'docs/NAVIGATION.md',
       'docs/COMPATIBILITY.md',
+      'docs/API_COVERAGE.md',
       'docs/compatibility-baseline.json',
       'app.plugin.js',
       'scripts/install-git-hooks.js',

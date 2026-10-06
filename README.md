@@ -45,6 +45,26 @@ The package covers the core Duo surfaces, but it does not yet expose every Swift
 
 These are API gaps, not silent fallbacks. Components report support and live native state so an app can explain or disable unavailable behavior.
 
+## Apple API coverage (supported / not supported)
+
+The [full coverage matrix](./docs/API_COVERAGE.md) maps each Apple Duo surface to this package's React Native API, with platform fallbacks and hardware-only boundaries. Summary:
+
+| Apple Duo surface | Native reference (iOS 27.1+) | Package API | Status |
+| ----------------- | ---------------------------- | ----------- | ------ |
+| Hinge angle and fold status | `UIHingeInteraction` | `DuoProvider`, `useDuoHinge()` | Supported |
+| Division / occlusion geometry | `UIView.reservedRegions` | `useDuoReservedRegions()`, `DuoGeometryView` | Supported |
+| Split / overlay panes | `UIArrangementViewController` | `DuoArrangementView` | Supported |
+| Adaptive vertical toolbars and tabs | Navigation + toolbar + tab controllers | `DuoAdaptiveToolbar`, `DuoNavigationToolbar` | Supported |
+| Screen actions on existing native stack | Navigation item / toolbar on stack VC | `DuoNavigationToolbar` | Supported |
+| Inner / outer / virtual front camera preview | `AVCaptureDeviceDirectionCoordinator`, Duo devices | `DuoCameraView`, `useDuoCameras()` | Supported (preview only) |
+| External display / camera-capture accessory | `UISceneAccessory` | `DuoSceneAccessory` | Supported (declarative content) |
+| Multiple scenes / second window | `UIWindowSceneActivation`, SwiftUI `WindowGroup` | — | **Not supported** |
+| Photo / video capture / frames to JS | AVFoundation capture outputs | — | **Not supported** |
+| SwiftUI-only arrangement / sheet placement policies | SwiftUI `ArrangementView`, `presentationPlacement` | Partial / not supported | See [matrix](./docs/API_COVERAGE.md) |
+| Custom standalone `UIToolbar` / `UITabBar` | — | — | **Not supported** (use package controllers) |
+
+Official overview: [Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo).
+
 ## Requirements
 
 - React Native with the New Architecture enabled. The native views use Fabric.

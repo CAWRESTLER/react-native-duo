@@ -5,6 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { after, before, test } = require('node:test');
 
+const { resolveCxx } = require('../resolve-cxx');
+
 const projectRoot = path.resolve(__dirname, '..', '..');
 let temporaryDirectory;
 let executable;
@@ -15,7 +17,7 @@ before(() => {
   );
   executable = path.join(temporaryDirectory, 'toolbar-visibility');
   execFileSync(
-    process.env.CXX || 'c++',
+    resolveCxx(),
     [
       '-std=c++17',
       '-Wall',

@@ -5,6 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { after, before, test } = require('node:test');
 
+const { resolveCxx } = require('../resolve-cxx');
+
 const projectRoot = path.resolve(__dirname, '..', '..');
 let temporaryDirectory;
 let executable;
@@ -17,7 +19,7 @@ before(() => {
   // CI's macOS/Linux images provide a C++ compiler. Do not silently skip the
   // native restart-policy tests if the local toolchain is missing.
   execFileSync(
-    process.env.CXX || 'c++',
+    resolveCxx(),
     [
       '-std=c++17',
       '-Wall',
