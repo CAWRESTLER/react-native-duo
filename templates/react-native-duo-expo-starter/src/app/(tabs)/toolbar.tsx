@@ -4,7 +4,7 @@ import {
 } from '@cawrestler/react-native-duo';
 import { useIsFocused } from 'expo-router';
 import { useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text } from 'react-native';
 
 export default function ToolbarScreen() {
   const active = useIsFocused();
@@ -48,12 +48,12 @@ export default function ToolbarScreen() {
           screen&apos;s toolbar actions—inline when horizontal, on the existing
           stack rail when vertical on Duo.
         </Text>
-        <Text style={styles.meta}>
+        <Text style={styles.mono}>
           Attachment: {toolbar?.attachment ?? 'measuring'} ·{' '}
           {toolbar?.isVertical ? 'vertical' : 'horizontal'}
         </Text>
         {lastAction ? (
-          <Text style={styles.meta}>Last action: {lastAction}</Text>
+          <Text style={styles.mono}>Last action: {lastAction}</Text>
         ) : null}
         {Platform.OS !== 'ios' ? (
           <Text style={styles.note}>
@@ -70,6 +70,10 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   title: { fontSize: 22, fontWeight: '600' },
   body: { fontSize: 16, lineHeight: 22, color: '#3C3C43' },
-  meta: { fontSize: 14, color: '#636366', fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }) },
+  mono: {
+    fontSize: 14,
+    color: '#636366',
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+  },
   note: { fontSize: 14, color: '#636366', fontStyle: 'italic' },
 });

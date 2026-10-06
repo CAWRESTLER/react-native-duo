@@ -1,5 +1,5 @@
 import { DuoArrangementView, useDuo } from '@cawrestler/react-native-duo';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 
 export default function ArrangementScreen() {
   const { isDuo, hinge, platform } = useDuo();
