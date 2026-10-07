@@ -2,7 +2,7 @@
 
 This developer preview builds on the first preview's native layout, hinge, toolbar, camera-preview, and companion-surface APIs. App developers compose React/TypeScript; the package provides the UIKit and AVFoundation bridge. Installing `0.1.0-preview.1` does not include the changes described here.
 
-This is for evaluation, not a stable production-support promise. APIs and integration details may change before `0.1.0`. This release targets npm `next` and a GitHub prerelease; it does not promote a stable release or move `latest`. Before this release was prepared, registry inspection on 2026-10-03 found both tags pointing to `0.1.0-preview.1`; the retained `latest` alias is not a stable-release claim. Registry availability, not the presence of these notes, confirms publication.
+This is for evaluation, not a stable production-support promise. APIs and integration details may change before `0.1.0`. This release targets npm `next` and a GitHub prerelease; it is not a stable release. Because npm requires a `latest` tag, `latest` was later moved from `0.1.0-preview.1` to this preview (both tags point to `0.1.0-preview.2` as of 2026-10-07); that alias is not a stable-release claim. Registry availability, not the presence of these notes, confirms publication.
 
 ## Changes since preview.1
 

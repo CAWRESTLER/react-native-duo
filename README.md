@@ -4,9 +4,9 @@ Native iPhone Duo UI from React Native and Expo—arrangements, adaptive vertica
 
 You do not need Duo hardware to start: run the **iPhone Duo** simulator in **Xcode 27.1+** to exercise fold geometry, regions, and adaptive bars without a $1999 phone.
 
-<!-- DEMO_GIF: replace with docs/assets/duo-demo.gif -->
+<p align="center"><img src="https://raw.githubusercontent.com/CAWRESTLER/react-native-duo/main/docs/assets/duo-demo.gif" width="400" alt="Duo Lab example on the iPhone Duo simulator: live environment overview, lab navigation, DuoArrangementView switching from split to overlay, and DuoAdaptiveToolbar rendering a vertical toolbar on the trailing edge" /></p>
 
-_Demo GIF placeholder — split arrangement and vertical toolbar on iPhone Duo simulator._
+<p align="center"><em>The <a href="./example/">Duo Lab example</a> on the iPhone Duo simulator (Xcode 27.1): arrangements and the adaptive vertical toolbar.</em></p>
 
 ## Try in 5 minutes
 
