@@ -24,6 +24,7 @@
     "CHANGELOG.md",
     "RELEASE_NOTES.md",
     "docs",
+    "!docs/assets",
     "scripts/install-git-hooks.js",
     "!ios/build",
     "!android/build",
