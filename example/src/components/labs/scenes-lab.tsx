@@ -36,6 +36,7 @@ export function ScenesLab() {
   const [scenePhase, setScenePhase] = useState(AppState.currentState);
   const [accessoryEnabled, setAccessoryEnabled] = useState(true);
   const [accessory, setAccessory] = useState(initialState);
+  const [reactCompanion, setReactCompanion] = useState(true);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', setScenePhase);
@@ -109,6 +110,16 @@ export function ScenesLab() {
             onChange={setAccessoryEnabled}
             value={accessoryEnabled}
           />
+          <ToggleRow
+            label="Render React content"
+            onChange={setReactCompanion}
+            value={reactCompanion}
+          />
+          <Caption>
+            {accessory.connected && accessory.size
+              ? `Connected at ${Math.round(accessory.size.width)} × ${Math.round(accessory.size.height)} pt`
+              : 'No accessory scene connected'}
+          </Caption>
           <Caption>
             ExternalNonInteractiveAccessory pairs supplemental, noninteractive
             content with this scene. CameraCaptureAccessory, demonstrated in
@@ -118,31 +129,58 @@ export function ScenesLab() {
         </LabCard>
       </DemoPage>
 
-      <DuoSceneAccessory
-        content={{
-          title: 'Duo Lab Companion',
-          subtitle:
-            'This noninteractive scene accessory follows the primary scene on a connected display.',
-          systemImage: 'display.2',
-          backgroundColor: '#5856D6',
-          gradientEndColor: '#AF52DE',
-          foregroundColor: '#FFFFFF',
-          symbolSize: 64,
-          titleFontSize: 34,
-          subtitleFontSize: 20,
-          subtitleOpacity: 0.8,
-          spacing: 18,
-        }}
-        enabled={accessoryEnabled}
-        kind="externalDisplay"
-        onStateChange={setAccessory}
-      />
+      {reactCompanion ? (
+        <DuoSceneAccessory
+          content={{ backgroundColor: '#5856D6' }}
+          enabled={accessoryEnabled}
+          kind="externalDisplay"
+          onStateChange={setAccessory}
+        >
+          <ReactCompanion />
+        </DuoSceneAccessory>
+      ) : (
+        <DuoSceneAccessory
+          content={{
+            title: 'Duo Lab Companion',
+            subtitle:
+              'This noninteractive scene accessory follows the primary scene on a connected display.',
+            systemImage: 'display.2',
+            backgroundColor: '#5856D6',
+            gradientEndColor: '#AF52DE',
+            foregroundColor: '#FFFFFF',
+            symbolSize: 64,
+            titleFontSize: 34,
+            subtitleFontSize: 20,
+            subtitleOpacity: 0.8,
+            spacing: 18,
+          }}
+          enabled={accessoryEnabled}
+          kind="externalDisplay"
+          onStateChange={setAccessory}
+        />
+      )}
 
       <DiagnosticsModal
         onClose={() => setDiagnosticsVisible(false)}
         visible={diagnosticsVisible}
       />
     </>
+  );
+}
+
+// Rendered by React inside the accessory scene, so it updates with live state.
+function ReactCompanion() {
+  const { hinge } = useDuo();
+  return (
+    <View style={styles.companion}>
+      <Text style={styles.companionEyebrow}>DUO LAB · REACT CONTENT</Text>
+      <Text style={styles.companionTitle}>Hinge {hinge.status}</Text>
+      <Text style={styles.companionAngle}>
+        {hinge.angleDegrees == null
+          ? '—'
+          : `${Math.round(hinge.angleDegrees)}°`}
+      </Text>
+    </View>
   );
 }
 
@@ -236,6 +274,27 @@ function sizeClassLabel(sizeClass: string) {
 
 const styles = StyleSheet.create({
   modal: { flex: 1 },
+  companion: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 32,
+    backgroundColor: '#5856D6',
+  },
+  companionEyebrow: {
+    color: '#E0E7FF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 3,
+  },
+  companionTitle: { color: '#FFFFFF', fontSize: 34, fontWeight: '700' },
+  companionAngle: {
+    color: '#FFFFFF',
+    fontSize: 96,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
   diagnosticsNavigation: {
     minHeight: 44,
     alignItems: 'center',

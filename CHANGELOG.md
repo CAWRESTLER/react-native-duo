@@ -4,6 +4,7 @@
 
 ### Added
 
+- `DuoSceneAccessory` accepts React `children`, rendered into the connected external-display or camera-capture accessory scene and sized to it. State adds `connected` and `size`. Declarative `content` is unchanged and becomes optional when children are passed.
 - [Apple Duo API coverage matrix](./docs/API_COVERAGE.md) with supported, partial, fallback, and not-supported rows vs UIKit / AVFoundation / scene APIs.
 - `scripts/resolve-cxx.js` so native C++ policy tests compile on Linux CI and cloud environments where the default `c++` driver is Clang without libstdc++ headers.
 

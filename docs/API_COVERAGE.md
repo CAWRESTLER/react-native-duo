@@ -47,11 +47,11 @@ Platform columns refer to the **package's public API**, not whether a generic RN
 
 | Apple API | Package API | iOS 27.1+ Duo | iOS &lt; 27.1 | Android / web |
 | --------- | ----------- | ------------- | -------------- | ------------- |
-| `UISceneAccessory` external display | `DuoSceneAccessory` `kind="externalDisplay"` | **Supported** — declarative native content | **Fallback** — `supported: false` | **Fallback** |
-| `UISceneAccessory` camera capture accessory | `DuoSceneAccessory` `kind="cameraCapture"` | **Supported** — declarative native content | **Fallback** | **Fallback** |
+| `UISceneAccessory` external display | `DuoSceneAccessory` `kind="externalDisplay"` | **Supported** — declarative native content or React children | **Fallback** — `supported: false` | **Fallback** |
+| `UISceneAccessory` camera capture accessory | `DuoSceneAccessory` `kind="cameraCapture"` | **Supported** — declarative native content or React children | **Fallback** | **Fallback** |
 | `UIApplication.supportsMultipleScenes` | `useDuo().supportsMultipleWindows` | **Supported** — read-only declaration | **Fallback** | **Fallback** |
 | `UIWindowSceneActivation` / SwiftUI `WindowGroup`, `openWindow` | — | **Not supported** — no second React Native window or scene host | — | — |
-| React tree inside accessory scene | — | **Not supported** — accessories are declarative (title, subtitle, symbol, colors) | — | — |
+| React tree inside accessory scene | `DuoSceneAccessory` `children` | **Supported** — children from the calling tree are reparented into the accessory window and sized to it; noninteractive | **Fallback** — children not rendered | **Fallback** — children not rendered |
 
 ## Camera (AVFoundation)
 
