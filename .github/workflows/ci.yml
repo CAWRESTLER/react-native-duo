@@ -19,6 +19,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    # Docs-only pull requests skip the native build steps. The native jobs
+    # still run and succeed, so `CI Required` and release verification keep
+    # their every-job-succeeds contract. Pushes and merge queues always build.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.filter.outputs.native }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes that need native builds
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          code_changes=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" \
+            | grep -vE '^(docs/|\.github/ISSUE_TEMPLATE/)|\.md$|^LICENSE$' || true)
+          if [ -n "$code_changes" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Docs-only change: native build steps will be skipped."
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -74,31 +109,42 @@ jobs:
         run: yarn pack:check
 
   build-android:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
+      - name: Skip for docs-only changes
+        if: needs.changes.outputs.native != 'true'
+        run: echo "Docs-only change; the Android build is skipped."
+
       - name: Checkout
+        if: needs.changes.outputs.native == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup
+        if: needs.changes.outputs.native == 'true'
         uses: ./.github/actions/setup
 
       - name: Install JDK
+        if: needs.changes.outputs.native == 'true'
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: 'zulu'
           java-version: '17'
 
       - name: Finalize Android SDK
+        if: needs.changes.outputs.native == 'true'
         run: |
           /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
 
       - name: Prebuild expo app for Android
+        if: needs.changes.outputs.native == 'true'
         run: |
           yarn example expo prebuild --platform android
 
       - name: Cache Gradle
+        if: needs.changes.outputs.native == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -109,12 +155,16 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build example for Android
+        if: needs.changes.outputs.native == 'true'
         env:
           JAVA_OPTS: '-XX:MaxHeapSize=6g'
+        # One ABI is enough to prove the native code compiles; the default
+        # builds all four.
         run: |
-          yarn example build:android
+          yarn example build:android -PreactNativeArchitectures=x86_64 --build-cache
 
   build-ios:
+    needs: changes
     # The normal macOS image has Xcode 26.x; Duo needs the 27.1 SDK.
     runs-on: xcode-27
     timeout-minutes: 60
@@ -124,26 +174,54 @@ jobs:
       EXPO_USE_PRECOMPILED_MODULES: 0
       RCT_USE_RN_DEP: 1
       RCT_USE_PREBUILT_RNCORE: 1
+      # React Native's Podfile hook routes clang through ccache when set.
+      USE_CCACHE: 1
 
     steps:
+      - name: Skip for docs-only changes
+        if: needs.changes.outputs.native != 'true'
+        run: echo "Docs-only change; the iOS build is skipped."
+
       - name: Checkout
+        if: needs.changes.outputs.native == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup
+        if: needs.changes.outputs.native == 'true'
         uses: ./.github/actions/setup
 
+      - name: Install ccache
+        if: needs.changes.outputs.native == 'true'
+        run: |
+          command -v ccache >/dev/null || brew install ccache
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+
+      - name: Cache compiler output
+        if: needs.changes.outputs.native == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-xcode-${{ env.XCODE_VERSION }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-${{ env.XCODE_VERSION }}-ccache-
+
       - name: Use appropriate Xcode version
+        if: needs.changes.outputs.native == 'true'
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Prebuild expo app for iOS
+        if: needs.changes.outputs.native == 'true'
         run: |
           yarn example expo prebuild --platform ios
 
       - name: Build example for iOS
+        if: needs.changes.outputs.native == 'true'
         run: |
+          ccache --zero-stats
           yarn example build:ios
+          ccache --show-stats
 
   build-web:
     runs-on: ubuntu-latest
@@ -163,7 +241,7 @@ jobs:
   required:
     name: CI Required
     if: ${{ always() }}
-    needs: [lint, test, build-library, build-android, build-ios, build-web]
+    needs: [changes, lint, test, build-library, build-android, build-ios, build-web]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
