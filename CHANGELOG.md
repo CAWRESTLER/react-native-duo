@@ -5,11 +5,14 @@
 ### Added
 
 - `DuoSceneAccessory` accepts React `children`, rendered into the connected external-display or camera-capture accessory scene and sized to it. State adds `connected` and `size`. Declarative `content` is unchanged and becomes optional when children are passed.
+- README demo GIF recorded from the Duo Lab example on the iPhone Duo simulator (`docs/assets/duo-demo.gif`, excluded from the npm package).
+- Compatibility report issue template for community RN/Expo/Xcode setup reports, including Expo SDK 57.
 - [Apple Duo API coverage matrix](./docs/API_COVERAGE.md) with supported, partial, fallback, and not-supported rows vs UIKit / AVFoundation / scene APIs.
 - `scripts/resolve-cxx.js` so native C++ policy tests compile on Linux CI and cloud environments where the default `c++` driver is Clang without libstdc++ headers.
 
 ### Changed
 
+- Release-channel docs now record that npm `latest` follows the newest preview (currently `0.1.0-preview.2`) until a stable `0.1.0`, since npm cannot drop `latest`.
 - Expo config plugin is registered through `package.json` `"expo"."plugin"` for standard autodiscovery alongside the documented `plugins` array entry.
 
 ## 0.1.0-preview.2 — 2026-10-03

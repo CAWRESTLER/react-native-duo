@@ -67,7 +67,7 @@ CI checks package lint/types/tests, distribution contents, and example builds on
 
 ## Publishing
 
-The public package name is `@cawrestler/react-native-duo`. The first preview's publication assigned both `next` and `latest` to `0.1.0-preview.1`, as observed on 2026-10-02. An attempted removal of its `latest` alias returned HTTP 400; this documents the observed state, not a general npm rule. The alias does not make the preview stable. Subsequent previews must publish to `next` without moving `latest`. Check current tags rather than assuming this historical state is unchanged. Preparing a version and notes is not permission to publish it. Confirm trusted-publisher setup before relying on the OIDC workflow.
+The public package name is `@cawrestler/react-native-duo`. npm keeps a `latest` tag on every package; an attempt to remove the first preview's alias returned HTTP 400. Until a stable `0.1.0` exists, `latest` follows the newest preview so an unqualified install never resolves to an older preview (as of 2026-10-07 both tags point to `0.1.0-preview.2`). The alias does not make the preview stable. Previews still publish through the workflow to `next`; afterwards, move `latest` with `npm dist-tag add @cawrestler/react-native-duo@<version> latest`. Check current tags rather than assuming this historical state is unchanged. Preparing a version and notes is not permission to publish it. Confirm trusted-publisher setup before relying on the OIDC workflow.
 
 ### Prepare a release pull request
 

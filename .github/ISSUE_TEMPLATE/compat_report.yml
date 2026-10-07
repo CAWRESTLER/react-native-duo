@@ -1,0 +1,83 @@
+name: 🧪 Compatibility report
+description: Share how the library behaved on your React Native / Expo / Xcode setup.
+labels: [compat-report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Compatibility report
+
+        Thanks for testing! Reports are community signal, not a support guarantee: maintainers only validate the locked baseline in [docs/COMPATIBILITY.md](https://github.com/CAWRESTLER/react-native-duo/blob/main/docs/COMPATIBILITY.md) (the example tracks Expo SDK 58). Reports for other setups, including Expo SDK 57, are especially welcome.
+  - type: input
+    id: library-version
+    attributes:
+      label: Library version
+      description: Published version, commit, or local tarball you tested.
+      placeholder: "0.1.0-preview.2"
+    validations:
+      required: true
+  - type: input
+    id: stack
+    attributes:
+      label: React Native / React / Expo SDK
+      placeholder: "RN 0.87.x, React 19.x, Expo SDK 57 (or bare)"
+    validations:
+      required: true
+  - type: input
+    id: xcode
+    attributes:
+      label: Xcode and iOS version
+      placeholder: "Xcode 27.1, iOS 27.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: build-type
+    attributes:
+      label: Build type
+      options:
+        - Expo development build
+        - Bare React Native
+    validations:
+      required: true
+  - type: dropdown
+    id: new-arch
+    attributes:
+      label: New Architecture enabled?
+      options:
+        - "Yes"
+        - "No"
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: Tested on
+      multiple: true
+      options:
+        - iPhone Duo simulator
+        - iPhone Duo hardware
+        - Non-Duo iPhone / older iOS
+        - Android
+        - Web
+    validations:
+      required: true
+  - type: textarea
+    id: build-properties
+    attributes:
+      label: expo-build-properties snippet
+      description: Your `expo-build-properties` plugin config (for example `enableSceneSupport`, `usePrecompiledModules`), if you use Expo.
+      render: json
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked
+      description: Components/hooks you exercised and the poses, rotations, or window sizes you tried.
+    validations:
+      required: true
+  - type: textarea
+    id: broke
+    attributes:
+      label: What broke or differed from expected
+      description: Observed vs expected behavior, with logs, screenshots, or recordings where possible. Write "Nothing" if everything worked.
+    validations:
+      required: true

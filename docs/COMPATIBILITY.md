@@ -108,7 +108,7 @@ Independent React-rendered scene sessions, photo/video capture, and camera frame
 
 ## Record a compatibility result
 
-Include this evidence in the release PR or consuming-app issue:
+Include this evidence in the release PR or consuming-app issue. Community reports can use the [compatibility report template](https://github.com/CAWRESTLER/react-native-duo/issues/new?template=compat_report.yml).
 
 - Candidate commit and package version or local tarball hash; note whether it is published or unreleased.
 - Host app name/path (when sharing it is appropriate), lockfile, React/RN/Expo/navigation versions, New Architecture setting, Xcode/SDK and iOS version.
@@ -120,6 +120,6 @@ A useful conclusion is “build and checklist passed on this exact setup, with t
 
 ## Published channels and release availability
 
-Read-only registry inspection on **2026-10-02** found both `latest` and `next` pointing to `0.1.0-preview.1`. The initial publication's `latest` alias remains; an attempted removal returned HTTP 400. This is the observed registry state, not a general claim that npm cannot remove tags. `latest` does not make this preview a stable release. npm's unqualified install selects `latest`; see the [official dist-tag documentation](https://docs.npmjs.com/cli/v11/commands/npm-dist-tag/).
+Read-only registry inspection on **2026-10-07** found both `latest` and `next` pointing to `0.1.0-preview.2`. npm keeps a `latest` tag on every package (an attempt to remove the first preview's alias returned HTTP 400), so until a stable `0.1.0` exists, `latest` tracks the newest preview rather than an older one. `latest` does not make this preview a stable release. npm's unqualified install selects `latest`; see the [official dist-tag documentation](https://docs.npmjs.com/cli/v11/commands/npm-dist-tag/).
 
-Pin `@cawrestler/react-native-duo@0.1.0-preview.1` to reproduce the first preview, or `@cawrestler/react-native-duo@0.1.0-preview.2` for these changes once published. Use `@next` to follow previews, subject to that tag's current registry value. The release workflow requires prereleases to use `next`; it does not retroactively change the first publication's `latest` alias. Verify current availability with `npm view @cawrestler/react-native-duo dist-tags`; use the matching checkout or a locally built tarball before publication. No compatibility check publishes a package or changes registry tags.
+Pin `@cawrestler/react-native-duo@0.1.0-preview.1` to reproduce the first preview, or `@cawrestler/react-native-duo@0.1.0-preview.2` for these changes. Use `@next` to follow previews, subject to that tag's current registry value. The release workflow publishes prereleases to `next`; a maintainer then moves `latest` to the same preview with `npm dist-tag` until a stable release exists. Verify current availability with `npm view @cawrestler/react-native-duo dist-tags`; use the matching checkout or a locally built tarball before publication. No compatibility check publishes a package or changes registry tags.
