@@ -63,7 +63,7 @@ function Pane({ title, detail }: { title: string; detail: string }) {
 | React Native API             | Native API on iOS 27.1+                                                                                | Other platforms                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
 | `DuoProvider` and `useDuo()` | `UIHingeInteraction`, reserved regions, Duo camera discovery, vertical-bar traits                      | Android foldables: hinge posture/angle and the fold as a reserved region (`isDuo: false`); web: stable fallback object |
-| `DuoGeometryView`            | Reserved regions and safe area in the measured native view's coordinates                               | Measured React Native width/height with no Duo regions |
+| `DuoGeometryView`            | Reserved regions and safe area in the measured native view's coordinates                               | Android foldables: the fold in the view's coordinates; web: measured width/height |
 | `DuoArrangementView`         | `UIArrangementViewController` with split and overlay arrangements                                      | Flexbox split or overlay; on Android foldables the split follows the fold |
 | `DuoAdaptiveToolbar`         | UIKit tab, navigation, and toolbar controllers with adaptive vertical-bar behavior                     | React Native action and tab bars                       |
 | `DuoNavigationToolbar`       | Actions attached to an existing native-stack screen; navigator retains headers, back buttons, and tabs | RN actions without a duplicate header/tab bar          |
@@ -341,7 +341,7 @@ Use `DuoGeometryView` around the surface whose geometry you need. A region measu
 </DuoGeometryView>
 ```
 
-The render function receives `DuoGeometryState`, including `native`, width, height, safe-area insets, and reserved regions. You may pass ordinary children and observe `onGeometryChange` instead. Android and web report measured dimensions with zero safe-area insets and no native reserved regions.
+The render function receives `DuoGeometryState`, including `native`, width, height, safe-area insets, and reserved regions. You may pass ordinary children and observe `onGeometryChange` instead. On Android foldables it reports the fold in the view's own coordinates (active while it separates content), plus the system-bar insets that overlap the view. Web reports measured dimensions with zero safe-area insets and no reserved regions.
 
 On iOS, window regions are retained and converted into this view's coordinates, so frames can have negative origins or extend completely outside its bounds. Clip visual overlays to the measured view, or intersect each frame with those bounds before using it to avoid content. Off-bounds results preserve the fold/camera context even when the measured view sits entirely in the other pane.
 

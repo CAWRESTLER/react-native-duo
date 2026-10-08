@@ -163,6 +163,11 @@ jobs:
         run: |
           yarn example build:android -PreactNativeArchitectures=x86_64 --build-cache
 
+      - name: Run Android unit tests
+        if: needs.changes.outputs.native == 'true'
+        working-directory: example/android
+        run: ./gradlew :cawrestler_react-native-duo:testDebugUnitTest -PreactNativeArchitectures=x86_64 --build-cache
+
   build-ios:
     needs: changes
     # The normal macOS image has Xcode 26.x; Duo needs the 27.1 SDK.
