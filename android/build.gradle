@@ -52,4 +52,7 @@ android {
 
 dependencies {
   implementation "com.facebook.react:react-android"
+  // Foldable posture and fold bounds.
+  implementation "androidx.window:window:1.3.0"
+  implementation "androidx.window:window-java:1.3.0"
 }

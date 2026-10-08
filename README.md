@@ -1,6 +1,6 @@
 # @cawrestler/react-native-duo
 
-Native iPhone Duo UI from React Native and Expo—arrangements, adaptive vertical toolbar, hinge and reserved regions, inner/outer cameras, and scene accessories—with documented fallbacks on Android, web, older iOS, and non-Duo iPhones.
+Native iPhone Duo UI from React Native and Expo—arrangements, adaptive vertical toolbar, hinge and reserved regions, inner/outer cameras, and scene accessories—with Android foldable posture through Jetpack WindowManager and documented fallbacks on web, older iOS, and non-Duo iPhones.
 
 You do not need Duo hardware to start: run the **iPhone Duo** simulator in **Xcode 27.1+** to exercise fold geometry, regions, and adaptive bars without a $1999 phone.
 
@@ -62,9 +62,9 @@ Preview releases ship on npm's `next` tag (`0.1.0-preview.2` at time of writing)
 
 | React Native API             | Native API on iOS 27.1+                                                                                | Other platforms                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| `DuoProvider` and `useDuo()` | `UIHingeInteraction`, reserved regions, Duo camera discovery, vertical-bar traits                      | Stable capability object with `isDuo: false`           |
+| `DuoProvider` and `useDuo()` | `UIHingeInteraction`, reserved regions, Duo camera discovery, vertical-bar traits                      | Android foldables: hinge posture/angle and the fold as a reserved region (`isDuo: false`); web: stable fallback object |
 | `DuoGeometryView`            | Reserved regions and safe area in the measured native view's coordinates                               | Measured React Native width/height with no Duo regions |
-| `DuoArrangementView`         | `UIArrangementViewController` with split and overlay arrangements                                      | Flexbox split or overlay                               |
+| `DuoArrangementView`         | `UIArrangementViewController` with split and overlay arrangements                                      | Flexbox split or overlay; on Android foldables the split follows the fold |
 | `DuoAdaptiveToolbar`         | UIKit tab, navigation, and toolbar controllers with adaptive vertical-bar behavior                     | React Native action and tab bars                       |
 | `DuoNavigationToolbar`       | Actions attached to an existing native-stack screen; navigator retains headers, back buttons, and tabs | RN actions without a duplicate header/tab bar          |
 | `DuoCameraView`              | Inner/outer Duo cameras, direction coordination, preview, and smart framing                            | Empty preview with an unsupported state callback       |
@@ -878,6 +878,7 @@ The package is designed so shared app code does not need platform guards:
 
 - iOS before 27.1 uses compatibility paths inside the native views: a manually laid-out arrangement and conventional horizontal UIKit tabs/tools. The Duo-specific `native` capability flags remain false.
 - Android and web use React Native arrangement and toolbar fallbacks. These offer layout and selectable labeled actions/tabs rather than native SF Symbols, vertical rails, or UIKit overflow menus.
+- On Android foldables (Pixel Fold, Galaxy Z Fold/Flip, and other devices Jetpack WindowManager supports), `DuoProvider` is native: `useDuoHinge()` reports `fullyOpen`/`partiallyOpen` from the fold posture (or `closed` from the hinge-angle sensor when the device is folded shut), `angleDegrees` comes from the hinge-angle sensor where the device has one, and the fold appears in `useDuoReservedRegions()` as a `division` region (`occlusion` when the hinge hides content), active while it separates content. `DuoArrangementView` places its panes on either side of an active fold. `isDuo` and `supportsDuoApis` stay `false` because they describe iPhone Duo; check `hinge.available` for foldable-aware layouts. Android phones without a hinge report the same fallback values as before.
 - Camera and scene accessory components report `supported: false` where native APIs are unavailable.
 - Hooks return complete objects with empty lists and explicit unavailable states; values are never omitted just because a platform lacks Duo hardware.
 

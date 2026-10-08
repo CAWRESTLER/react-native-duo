@@ -47,6 +47,14 @@ export interface DuoEnvironmentStore {
   subscribe: (listener: Listener) => () => void;
   subscribeToField: (field: EnvironmentField, listener: Listener) => () => void;
   update: (environment: DuoEnvironment) => DuoEnvironment;
+  /** The provider's host view, so descendants can map provider-local region frames. */
+  host: { current: DuoMeasurableHost | null };
+}
+
+export interface DuoMeasurableHost {
+  measureInWindow: (
+    callback: (x: number, y: number, width: number, height: number) => void
+  ) => void;
 }
 
 // Native events are JSON snapshots, so even unchanged arrays/objects arrive
@@ -83,6 +91,7 @@ export function createDuoEnvironmentStore(
   const fieldListeners = new Map<EnvironmentField, Set<Listener>>();
 
   return {
+    host: { current: null },
     getSnapshot: () => environment,
     subscribe: (listener) => {
       listeners.add(listener);
