@@ -113,7 +113,7 @@
     "react-native": "0.88.0-rc.1",
     "react-native-builder-bob": "^0.43.1",
     "react-test-renderer": "19.3.0",
-    "release-it": "^21.0.1",
+    "release-it": "^21.1.1",
     "turbo": "^2.10.8",
     "typescript": "^6.0.3"
   },
@@ -126,6 +126,9 @@
     "@expo/config-plugins": {
       "optional": true
     }
+  },
+  "resolutions": {
+    "uuid@npm:^7.0.3": "npm:^11.1.1"
   },
   "workspaces": [
     "example"
