@@ -21,6 +21,24 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
   return [content[key] isKindOfClass:[NSNumber class]] && [content[key] boolValue];
 }
 
+// Accessory scenes are created by UIKit, so the scene delegate finds the
+// registering host through a per-view token carried in the accessory userInfo.
+static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(void)
+{
+  static NSMapTable *hosts;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    hosts = [NSMapTable strongToWeakObjectsMapTable];
+  });
+  return hosts;
+}
+
+@interface RNDuoSceneAccessoryView ()
+- (void)accessorySceneDidConnectWithView:(UIView *)view;
+- (void)accessorySceneDidDisconnectFromView:(UIView *)view;
+- (void)accessorySceneViewDidLayout:(UIView *)view;
+@end
+
 @interface RNDuoAccessoryBackgroundView : UIView
 @end
 
@@ -29,17 +47,28 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
 @end
 
 @interface RNDuoAccessoryContentViewController : UIViewController
-- (instancetype)initWithContent:(NSDictionary *)content;
+@property (nonatomic, copy, nullable) void (^layoutHandler)(UIView *view);
+- (instancetype)initWithContent:(NSDictionary *)content reactContent:(BOOL)reactContent;
 @end
 
 @implementation RNDuoAccessoryContentViewController {
   NSDictionary *_content;
+  BOOL _reactContent;
 }
 
-- (instancetype)initWithContent:(NSDictionary *)content
+- (instancetype)initWithContent:(NSDictionary *)content reactContent:(BOOL)reactContent
 {
-  if (self = [super init]) _content = content;
+  if (self = [super init]) {
+    _content = content;
+    _reactContent = reactContent;
+  }
   return self;
+}
+
+- (void)viewDidLayoutSubviews
+{
+  [super viewDidLayoutSubviews];
+  if (self.layoutHandler) self.layoutHandler(self.view);
 }
 
 - (void)loadView
@@ -52,6 +81,11 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
     gradient.colors = @[ (__bridge id)root.backgroundColor.CGColor, (__bridge id)end.CGColor ];
     gradient.startPoint = CGPointMake(0, 0);
     gradient.endPoint = CGPointMake(1, 1);
+  }
+  if (_reactContent) {
+    // The registering host moves its mounted React children into this view.
+    self.view = root;
+    return;
   }
 
   UIStackView *stack = [[UIStackView alloc] init];
@@ -129,7 +163,10 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
 @property (nonatomic, strong) UIWindow *window;
 @end
 
-@implementation RNDuoAccessorySceneDelegate
+@implementation RNDuoAccessorySceneDelegate {
+  __weak RNDuoSceneAccessoryView *_host;
+  __weak UIView *_contentView;
+}
 
 - (void)scene:(UIScene *)scene
     willConnectToSession:(UISceneSession *)session
@@ -139,14 +176,31 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
   NSDictionary *userInfo = [connectionOptions.sceneAccessoryUserInfo isKindOfClass:[NSDictionary class]]
       ? connectionOptions.sceneAccessoryUserInfo : @{};
   NSDictionary *content = [userInfo[@"content"] isKindOfClass:[NSDictionary class]] ? userInfo[@"content"] : @{};
+  NSString *token = [userInfo[@"hostToken"] isKindOfClass:[NSString class]] ? userInfo[@"hostToken"] : nil;
+  RNDuoSceneAccessoryView *host = token ? [RNDuoAccessoryHosts() objectForKey:token] : nil;
+  // Without a live host there is no React tree to show, so fall back to the declarative content.
+  BOOL reactContent = host && [userInfo[@"reactContent"] isKindOfClass:[NSNumber class]] && [userInfo[@"reactContent"] boolValue];
+  RNDuoAccessoryContentViewController *controller =
+      [[RNDuoAccessoryContentViewController alloc] initWithContent:content reactContent:reactContent];
+  __weak RNDuoSceneAccessoryView *weakHost = host;
+  controller.layoutHandler = ^(UIView *view) {
+    [weakHost accessorySceneViewDidLayout:view];
+  };
   UIWindow *window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-  window.rootViewController = [[RNDuoAccessoryContentViewController alloc] initWithContent:content];
+  window.rootViewController = controller;
   self.window = window;
   window.hidden = NO;
+  _host = host;
+  _contentView = controller.view;
+  [host accessorySceneDidConnectWithView:controller.view];
 }
 
 - (void)sceneDidDisconnect:(UIScene *)scene
 {
+  UIView *contentView = _contentView;
+  if (contentView) [_host accessorySceneDidDisconnectFromView:contentView];
+  _host = nil;
+  _contentView = nil;
   self.window = nil;
 }
 
@@ -161,6 +215,13 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
   BOOL _enabled;
   NSString *_configurationFingerprint;
   NSString *_lastPayload;
+  NSString *_hostToken;
+  BOOL _reactContent;
+  // Mounted React children live here: hidden inside the host until an accessory
+  // scene connects, then reparented into that scene's root view.
+  UIView *_reactContainer;
+  __weak UIView *_accessoryView;
+  CGSize _accessorySize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -179,8 +240,63 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
     _emptyView = [[UIView alloc] init];
     _emptyView.hidden = YES;
     self.contentView = _emptyView;
+    _hostToken = NSUUID.UUID.UUIDString;
+    [RNDuoAccessoryHosts() setObject:self forKey:_hostToken];
+    _reactContainer = [[UIView alloc] init];
+    _reactContainer.hidden = YES;
+    [self addSubview:_reactContainer];
   }
   return self;
+}
+
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  [_reactContainer insertSubview:childComponentView atIndex:MIN(index, (NSInteger)_reactContainer.subviews.count)];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  [childComponentView removeFromSuperview];
+}
+
+- (void)accessorySceneDidConnectWithView:(UIView *)view
+{
+  _accessoryView = view;
+  _accessorySize = view.bounds.size;
+  if (_reactContent) {
+    [_reactContainer removeFromSuperview];
+    _reactContainer.frame = view.bounds;
+    _reactContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _reactContainer.hidden = NO;
+    [view addSubview:_reactContainer];
+  }
+  [self emitStateIfNeeded];
+}
+
+- (void)accessorySceneDidDisconnectFromView:(UIView *)view
+{
+  // A replacement registration may already have connected a newer scene.
+  if (view != _accessoryView) return;
+  [self restoreReactContainer];
+  [self emitStateIfNeeded];
+}
+
+- (void)accessorySceneViewDidLayout:(UIView *)view
+{
+  if (view != _accessoryView || CGSizeEqualToSize(view.bounds.size, _accessorySize)) return;
+  _accessorySize = view.bounds.size;
+  [self emitStateIfNeeded];
+}
+
+- (void)restoreReactContainer
+{
+  _accessoryView = nil;
+  _accessorySize = CGSizeZero;
+  if (_reactContainer.superview == self) return;
+  [_reactContainer removeFromSuperview];
+  _reactContainer.autoresizingMask = UIViewAutoresizingNone;
+  _reactContainer.hidden = YES;
+  [self addSubview:_reactContainer];
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -188,9 +304,12 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
   const auto &newProps = *std::static_pointer_cast<RNDuoSceneAccessoryViewProps const>(props);
   NSString *nextKind = newProps.kind.empty() ? @"externalDisplay" : @(newProps.kind.c_str());
   NSDictionary *nextContent = RNDuoParseDictionary(@(newProps.contentJson.c_str()));
-  BOOL shouldReregister = ![_kind isEqualToString:nextKind] || ![_content isEqualToDictionary:nextContent];
+  BOOL nextReactContent = newProps.reactContent;
+  BOOL shouldReregister = ![_kind isEqualToString:nextKind] || ![_content isEqualToDictionary:nextContent] ||
+      _reactContent != nextReactContent;
   _kind = nextKind;
   _content = nextContent;
+  _reactContent = nextReactContent;
   _enabled = newProps.enabled;
   [super updateProps:props oldProps:oldProps];
   if (shouldReregister) [self unregisterAccessory];
@@ -230,7 +349,12 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
     if (!host) return;
     UISceneConfiguration *configuration = [[UISceneConfiguration alloc] init];
     configuration.delegateClass = RNDuoAccessorySceneDelegate.class;
-    NSDictionary *userInfo = @{ @"content": _content, @"kind": _kind };
+    NSDictionary *userInfo = @{
+      @"content": _content,
+      @"kind": _kind,
+      @"hostToken": _hostToken,
+      @"reactContent": @(_reactContent),
+    };
     UISceneAccessory *accessory = [_kind isEqualToString:@"cameraCapture"]
         ? [UISceneAccessory cameraCaptureSceneAccessoryWithConfiguration:configuration userInfo:userInfo]
         : [UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:configuration userInfo:userInfo];
@@ -249,6 +373,7 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
     _registration = nil;
     _registrationHost = nil;
   }
+  [self restoreReactContainer];
 }
 
 - (void)emitStateIfNeeded
@@ -268,6 +393,8 @@ static BOOL RNDuoAccessoryFlag(NSDictionary *content, NSString *key)
     @"available": @(available),
     @"enabled": @(_enabled),
     @"kind": _kind,
+    @"connected": @(_accessoryView != nil),
+    @"size": _accessoryView ? @{ @"width": @(_accessorySize.width), @"height": @(_accessorySize.height) } : [NSNull null],
   });
   if ([_lastPayload isEqualToString:payload]) return;
   _lastPayload = payload;

@@ -19,7 +19,10 @@ export function DuoSceneAccessory({
       available: false,
       enabled,
       kind,
+      connected: false,
+      size: null,
     });
   }, [enabled, kind, onStateChange]);
+  // Accessory scenes are iOS-only; React children are not rendered elsewhere.
   return null;
 }

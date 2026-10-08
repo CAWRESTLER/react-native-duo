@@ -8,6 +8,7 @@ export interface NativeDuoSceneAccessoryProps extends ViewProps {
   kind: string;
   contentJson: string;
   enabled?: boolean;
+  reactContent?: boolean;
   onStateChange?: CodegenTypes.DirectEventHandler<
     Readonly<{ payload: string }>
   >;

@@ -7,6 +7,7 @@
 - `@cawrestler/react-native-duo/jest` mock: components render with the JavaScript fallbacks, and `setMockDuoEnvironment` / `resetMockDuoEnvironment` / `createMockDuoEnvironment` simulate Duo environments in app tests.
 - [API stability](./docs/API_STABILITY.md) proposal classifying each export as stable or experimental, with `@experimental` JSDoc tags and open naming questions for `0.1.0`.
 - Maestro end-to-end flows for the Duo Lab example (`yarn example e2e`) covering arrangement switching, toolbar placement, and scene accessory registration.
+- `DuoSceneAccessory` accepts React `children`, rendered into the connected external-display or camera-capture accessory scene and sized to it. State adds `connected` and `size`. Declarative `content` is unchanged and becomes optional when children are passed.
 - README demo GIF recorded from the Duo Lab example on the iPhone Duo simulator (`docs/assets/duo-demo.gif`, excluded from the npm package).
 - Compatibility report issue template for community RN/Expo/Xcode setup reports, including Expo SDK 57.
 - [Apple Duo API coverage matrix](./docs/API_COVERAGE.md) with supported, partial, fallback, and not-supported rows vs UIKit / AVFoundation / scene APIs.
