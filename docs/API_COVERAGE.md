@@ -17,8 +17,8 @@ Platform columns refer to the **package's public API**, not whether a generic RN
 
 | Apple API (UIKit / SwiftUI) | Package API | iOS 27.1+ Duo | iOS &lt; 27.1 | Android / web |
 | --------------------------- | ----------- | ------------- | -------------- | ------------- |
-| `UIHingeInteraction` / SwiftUI `onHingeChange` | `DuoProvider`, `useDuo()`, `useDuoHinge()` | **Supported** — status, angle (rad/deg) | **Fallback** — `available: false`, unavailable status | **Fallback** |
-| `UIView.reservedRegions(ofKind:options:)` / SwiftUI `GeometryReader.reservedRegions` | `useDuoReservedRegions()`, `DuoGeometryView`, provider `geometry.reservedRegions` | **Supported** — division + occlusion, optional inactive (`includeInactiveRegions`) | **Fallback** — empty regions | **Fallback** |
+| `UIHingeInteraction` / SwiftUI `onHingeChange` | `DuoProvider`, `useDuo()`, `useDuoHinge()` | **Supported** — status, angle (rad/deg) | **Fallback** — `available: false`, unavailable status | **Android foldables: Supported** — posture from Jetpack WindowManager, angle from the hinge-angle sensor (API 30+) where present; web **Fallback** |
+| `UIView.reservedRegions(ofKind:options:)` / SwiftUI `GeometryReader.reservedRegions` | `useDuoReservedRegions()`, `DuoGeometryView`, provider `geometry.reservedRegions` | **Supported** — division + occlusion, optional inactive (`includeInactiveRegions`) | **Fallback** — empty regions | **Android foldables: Partial** — the fold via `useDuoReservedRegions()` / provider geometry (`DuoGeometryView` stays a fallback); web **Fallback** |
 | Size classes (`horizontalSizeClass` / `verticalSizeClass`) | `useDuo()` | **Supported** — native traits | **Fallback** — `unspecified` | **Fallback** — inferred unavailable |
 | System vertical bar edge trait | `useDuo().verticalBarEdge` | **Supported** | **Fallback** — `unavailable` | **Fallback** |
 | Duo camera discovery (`AVCaptureDevice` discovery for inner/outer/virtual front) | `useDuoCameras()` | **Supported** on eligible hardware | **Fallback** — empty list | **Fallback** |

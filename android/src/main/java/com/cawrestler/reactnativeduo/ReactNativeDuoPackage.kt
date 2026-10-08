@@ -7,12 +7,12 @@ import com.facebook.react.module.model.ReactModuleInfoProvider
 import com.facebook.react.uimanager.ViewManager
 
 /**
- * Android intentionally exposes no native views. The JavaScript implementation provides
- * predictable fallbacks while the iPhone Duo APIs remain iOS-only.
+ * Android registers only the environment view, which reports foldable posture through
+ * Jetpack WindowManager. Other components use the JavaScript fallbacks on Android.
  */
 class ReactNativeDuoViewPackage : BaseReactPackage() {
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
-    return emptyList()
+    return listOf(RNDuoEnvironmentViewManager())
   }
 
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? = null

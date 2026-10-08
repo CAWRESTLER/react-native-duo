@@ -4,6 +4,7 @@
 
 ### Added
 
+- Android foldable support: `DuoProvider` reports hinge posture, hinge angle (where the device has a hinge-angle sensor), and the fold as a reserved region through Jetpack WindowManager, and `DuoArrangementView` splits its panes along an active fold. `isDuo` stays `false` on Android.
 - `@cawrestler/react-native-duo/jest` mock: components render with the JavaScript fallbacks, and `setMockDuoEnvironment` / `resetMockDuoEnvironment` / `createMockDuoEnvironment` simulate Duo environments in app tests.
 - [API stability](./docs/API_STABILITY.md) proposal classifying each export as stable or experimental, with `@experimental` JSDoc tags and open naming questions for `0.1.0`.
 - Maestro end-to-end flows for the Duo Lab example (`yarn example e2e`) covering arrangement switching, toolbar placement, and scene accessory registration.
