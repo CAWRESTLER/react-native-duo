@@ -279,14 +279,37 @@ export interface DuoSceneAccessoryState {
   available: boolean;
   enabled: boolean;
   kind: DuoSceneAccessoryKind;
+  /** Whether the system has connected an accessory scene for this registration. */
+  connected?: boolean;
+  /** The connected accessory scene's size in points, or `null` while disconnected. */
+  size?: { width: number; height: number } | null;
 }
 
-export interface DuoSceneAccessoryProps {
+interface DuoSceneAccessoryBaseProps {
   kind: DuoSceneAccessoryKind;
-  content: DuoSceneAccessoryContent;
   enabled?: boolean;
   onStateChange?: (state: DuoSceneAccessoryState) => void;
 }
+
+/** Declarative native text and symbol content. */
+export interface DuoSceneAccessoryDeclarativeProps extends DuoSceneAccessoryBaseProps {
+  content: DuoSceneAccessoryContent;
+  children?: undefined;
+}
+
+/**
+ * React content rendered into the accessory scene. The accessory is
+ * noninteractive, so children do not receive touches. `content` is optional;
+ * its colors become the scene background and its text is shown if the scene
+ * connects without a live host.
+ */
+export interface DuoSceneAccessoryReactProps extends DuoSceneAccessoryBaseProps {
+  children: ReactNode;
+  content?: Partial<DuoSceneAccessoryContent>;
+}
+
+export type DuoSceneAccessoryProps =
+  DuoSceneAccessoryDeclarativeProps | DuoSceneAccessoryReactProps;
 
 export type DuoCameraPermission =
   'undetermined' | 'denied' | 'restricted' | 'granted';

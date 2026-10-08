@@ -4,6 +4,7 @@
 
 ### Added
 
+- `DuoSceneAccessory` accepts React `children`, rendered into the connected external-display or camera-capture accessory scene and sized to it. State adds `connected` and `size`. Declarative `content` is unchanged and becomes optional when children are passed.
 - README demo GIF recorded from the Duo Lab example on the iPhone Duo simulator (`docs/assets/duo-demo.gif`, excluded from the npm package).
 - Compatibility report issue template for community RN/Expo/Xcode setup reports, including Expo SDK 57.
 - [Apple Duo API coverage matrix](./docs/API_COVERAGE.md) with supported, partial, fallback, and not-supported rows vs UIKit / AVFoundation / scene APIs.

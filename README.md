@@ -84,7 +84,7 @@ The [full coverage matrix](./docs/API_COVERAGE.md) maps each Apple Duo surface t
 | Adaptive vertical toolbars and tabs | Navigation + toolbar + tab controllers | `DuoAdaptiveToolbar`, `DuoNavigationToolbar` | Supported |
 | Screen actions on existing native stack | Navigation item / toolbar on stack VC | `DuoNavigationToolbar` | Supported |
 | Inner / outer / virtual front camera preview | `AVCaptureDeviceDirectionCoordinator`, Duo devices | `DuoCameraView`, `useDuoCameras()` | Supported (preview only) |
-| External display / camera-capture accessory | `UISceneAccessory` | `DuoSceneAccessory` | Supported (declarative content) |
+| External display / camera-capture accessory | `UISceneAccessory` | `DuoSceneAccessory` | Supported (declarative or React content) |
 | Multiple scenes / second window | `UIWindowSceneActivation`, SwiftUI `WindowGroup` | — | **Not supported** |
 | Photo / video capture / frames to JS | AVFoundation capture outputs | — | **Not supported** |
 | SwiftUI-only arrangement / sheet placement policies | SwiftUI `ArrangementView`, `presentationPlacement` | Partial / not supported | See [matrix](./docs/API_COVERAGE.md) |
@@ -112,7 +112,7 @@ The package covers the core Duo surfaces, but it does not yet expose every Swift
 - Independent React Native windows and coordination between separately rendered scene sessions are not yet implemented. `WindowGroup` is a SwiftUI API; an equivalent React Native feature would require native scene hosting and lifecycle integration, not a JavaScript setting. This is a current package boundary, not a claim that such support is impossible.
 - `arrangement="automatic"` uses UIKit's default `UISplitArrangement` sizing with both axes allowed. UIKit does not expose SwiftUI's `automaticArrangement` policy, so the package does not promise identical policy decisions in every window geometry.
 - Camera support provides preview and device controls, but does not capture photos, record video, or return frames to JavaScript.
-- Scene accessory content currently supports declarative native text/symbol content, not a separate React tree.
+- Scene accessory React content is noninteractive and shares the calling React tree; it is not an independent React Native window.
 - Vertical-bar opt-out applies to this package's controls. The app's root controller separately owns the window-wide status-bar axis.
 
 These are API gaps, not silent fallbacks. Components report support and live native state so an app can explain or disable unavailable behavior.
@@ -606,7 +606,7 @@ For example, a source and ratio picker can drive the preview without changing na
 
 ## Companion scene accessories
 
-Register declarative content for the Duo external-display or camera-capture accessory surface:
+Register declarative content or React children for the Duo external-display or camera-capture accessory surface:
 
 ```tsx
 <DuoSceneAccessory
@@ -623,7 +623,19 @@ Register declarative content for the Duo external-display or camera-capture acce
 />
 ```
 
-`kind` is `externalDisplay` or `cameraCapture`. The package owns registration and cleanup. Accessory content is intentionally declarative—title, subtitle, SF Symbol, and colors—because the accessory scene has a separate native lifecycle and cannot host the calling React tree directly.
+`kind` is `externalDisplay` or `cameraCapture`. The package owns registration and cleanup.
+
+To render your own UI, pass React children instead of (or alongside) `content`. They stay part of the calling React tree—hooks, context, and state updates work as usual—while the native view moves them into the accessory scene's window and lays them out at its size:
+
+```tsx
+<DuoSceneAccessory kind="externalDisplay" content={{ backgroundColor: '#000000' }}>
+  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+    <Text style={{ color: 'white', fontSize: 48 }}>Slide {slide} of {total}</Text>
+  </View>
+</DuoSceneAccessory>
+```
+
+Accessory scenes are noninteractive, so children never receive touches. Children render nothing until a scene connects; `onStateChange` reports `connected` and the scene `size`. With children, `content` is optional: its colors become the scene background, and its title/subtitle/symbol are shown only if the system connects the scene without a live host. On Android, web, and older iOS, children are not rendered.
 
 `useDuo().supportsMultipleWindows` reports the host's scene capability. A positive value does not supply SwiftUI `WindowGroup`, `openWindow`, or separate React Native scene sessions. The demo labels its in-app action **Preview diagnostics** and disables **Open diagnostics window** for that reason.
 
@@ -801,13 +813,14 @@ State adds `attachment`: `attached`, `inactive`, `missingNativeStack`, `conflict
 | Prop            | Type                                      | Default  | Purpose                                                               |
 | --------------- | ----------------------------------------- | -------- | --------------------------------------------------------------------- |
 | `kind`          | `externalDisplay \| cameraCapture`        | required | Chooses the companion system surface.                                 |
-| `content`       | `DuoSceneAccessoryContent`                | required | Declarative title, subtitle, SF Symbol, and colors.                   |
+| `content`       | `DuoSceneAccessoryContent`                | required without `children` | Declarative title, subtitle, SF Symbol, and colors.     |
+| `children`      | `ReactNode`                               | —        | React content rendered into the connected accessory scene.            |
 | `enabled`       | `boolean`                                 | `true`   | Enables or disables the mounted accessory's registration.             |
-| `onStateChange` | `(state: DuoSceneAccessoryState) => void` | —        | Reports support, registration, availability, enabled state, and kind. |
+| `onStateChange` | `(state: DuoSceneAccessoryState) => void` | —        | Reports support, registration, availability, enabled state, kind, connection, and scene size. |
 
 The component unregisters on unmount. Setting `enabled={false}` disables an existing registration, so `registered` may remain `true` while `enabled` is `false`; `available` is the system's separate eligibility state.
 
-`content.title` is required. Native color props accept `#RRGGBB` and `#RRGGBBAA` hex strings, using the same alpha-last format as React Native/CSS. The complete content shape is:
+Without `children`, `content.title` is required. Native color props accept `#RRGGBB` and `#RRGGBBAA` hex strings, using the same alpha-last format as React Native/CSS. The complete content shape is:
 
 | Field              | Type      | Default                  | Purpose                                                         |
 | ------------------ | --------- | ------------------------ | --------------------------------------------------------------- |
