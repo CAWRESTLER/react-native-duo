@@ -27,6 +27,7 @@ export default defineConfig([
     ignores: [
       'node_modules/',
       'lib/',
+      'android/build/',
       'example/.expo/',
       'example/android/',
       'example/dist/',

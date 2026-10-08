@@ -3,12 +3,12 @@ package com.cawrestler.reactnativeduo
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.graphics.Rect
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.view.ViewTreeObserver
 import androidx.core.util.Consumer
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -26,6 +26,8 @@ import org.json.JSONObject
 
 /**
  * Reports Android foldable posture in the same environment payload the iOS view emits.
+ * `DuoProvider` and `DuoGeometryView` both use it; region frames and safe-area insets are
+ * local to this view, so a nested geometry view sees the fold in its own coordinates.
  *
  * Jetpack WindowManager supplies the fold's bounds, state, and occlusion; the optional
  * hinge-angle sensor (API 30+) supplies the angle. iPhone Duo-specific fields stay at
@@ -50,12 +52,21 @@ class RNDuoEnvironmentView(context: Context) : ReactViewGroup(context), SensorEv
     emitIfChanged()
   }
 
+  // An ancestor can scroll or move this view without relaying it out, which still changes
+  // its local region frames. The payload comparison makes these callbacks cheap.
+  private val globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { emitIfChanged() }
+  private val scrollListener = ViewTreeObserver.OnScrollChangedListener { emitIfChanged() }
+
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
+    viewTreeObserver.addOnGlobalLayoutListener(globalLayoutListener)
+    viewTreeObserver.addOnScrollChangedListener(scrollListener)
     startTracking()
   }
 
   override fun onDetachedFromWindow() {
+    viewTreeObserver.removeOnGlobalLayoutListener(globalLayoutListener)
+    viewTreeObserver.removeOnScrollChangedListener(scrollListener)
     stopTracking()
     super.onDetachedFromWindow()
   }
@@ -126,60 +137,68 @@ class RNDuoEnvironmentView(context: Context) : ReactViewGroup(context), SensorEv
     foldingFeature?.let { feature ->
       val active = feature.isSeparating
       if (active || includeInactiveRegions) {
-        val bounds = Rect(feature.bounds).apply { offset(-location[0], -location[1]) }
-        val kind =
-          if (feature.occlusionType == FoldingFeature.OcclusionType.FULL) "occlusion" else "division"
+        val bounds = feature.bounds
+        val kind = RNDuoFoldGeometry.regionKind(feature.occlusionType == FoldingFeature.OcclusionType.FULL)
         regions.put(
           JSONObject()
             .put("id", "android-fold-$kind")
             .put("kind", kind)
-            .put("frame", rect(bounds, density))
-            .put("margins", insets(0f, 0f, 0f, 0f))
+            .put(
+              "frame",
+              frame(
+                RNDuoFoldGeometry.localFrame(
+                  bounds.left, bounds.top, bounds.right, bounds.bottom, location[0], location[1], density
+                )
+              )
+            )
+            .put("margins", insets(RNDuoFoldGeometry.Insets.ZERO))
             .put("isActive", active)
         )
       }
     }
 
-    val widthDp = width / density
-    val heightDp = height / density
-    val rootView = rootView
-    val windowWidthDp = (rootView?.width ?: width) / density
-    val windowHeightDp = (rootView?.height ?: height) / density
-    val systemInsets =
+    val root = rootView ?: this
+    val windowWidthDp = root.width / density.toDouble()
+    val windowHeightDp = root.height / density.toDouble()
+    val windowInsets =
       ViewCompat.getRootWindowInsets(this)
         ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-    val safeArea =
-      if (systemInsets == null) insets(0f, 0f, 0f, 0f)
-      else insets(
-        systemInsets.top / density,
-        systemInsets.right / density,
-        systemInsets.bottom / density,
-        systemInsets.left / density,
+        ?.let { RNDuoFoldGeometry.Insets(it.top.toDouble(), it.right.toDouble(), it.bottom.toDouble(), it.left.toDouble()) }
+        ?: RNDuoFoldGeometry.Insets.ZERO
+    val rootLocation = IntArray(2).also { root.getLocationInWindow(it) }
+    val viewSafeArea =
+      RNDuoFoldGeometry.localInsets(
+        windowInsets, location[0], location[1], width, height, root.width, root.height, density
+      )
+    val windowSafeArea =
+      RNDuoFoldGeometry.localInsets(
+        windowInsets, rootLocation[0], rootLocation[1], root.width, root.height, root.width, root.height, density
       )
 
     val hasHinge = foldingFeature != null || hingeSensor != null
     val angle = hingeAngleDegrees
+    val foldHalfOpened = foldingFeature?.let { it.state == FoldingFeature.State.HALF_OPENED }
     return JSONObject()
       .put("supportsDuoApis", false)
       .put("isDuo", false)
       .put("platform", "android")
-      .put("horizontalSizeClass", if (windowWidthDp >= 600) "regular" else "compact")
-      .put("verticalSizeClass", if (windowHeightDp >= 480) "regular" else "compact")
+      .put("horizontalSizeClass", RNDuoFoldGeometry.horizontalSizeClass(windowWidthDp))
+      .put("verticalSizeClass", RNDuoFoldGeometry.verticalSizeClass(windowHeightDp))
       .put("supportsMultipleWindows", false)
       .put(
         "geometry",
         JSONObject()
           .put("native", true)
-          .put("width", widthDp.toDouble())
-          .put("height", heightDp.toDouble())
-          .put("safeAreaInsets", safeArea)
+          .put("width", width / density.toDouble())
+          .put("height", height / density.toDouble())
+          .put("safeAreaInsets", insets(viewSafeArea))
           .put("reservedRegions", regions)
       )
       .put(
         "hinge",
         JSONObject()
           .put("available", hasHinge)
-          .put("status", hingeStatus(foldingFeature, angle, hasHinge))
+          .put("status", RNDuoFoldGeometry.hingeStatus(foldHalfOpened, angle, hasHinge))
           .put("angleRadians", angle?.let { Math.toRadians(it) } ?: JSONObject.NULL)
           .put("angleDegrees", angle ?: JSONObject.NULL)
       )
@@ -189,43 +208,26 @@ class RNDuoEnvironmentView(context: Context) : ReactViewGroup(context), SensorEv
       .put(
         "window",
         JSONObject()
-          .put("width", windowWidthDp.toDouble())
-          .put("height", windowHeightDp.toDouble())
+          .put("width", windowWidthDp)
+          .put("height", windowHeightDp)
           .put("scale", density.toDouble())
-          .put("safeAreaInsets", safeArea)
+          .put("safeAreaInsets", insets(windowSafeArea))
       )
   }
 
-  private fun rect(bounds: Rect, density: Float) =
+  private fun frame(frame: RNDuoFoldGeometry.Frame) =
     JSONObject()
-      .put("x", (bounds.left / density).toDouble())
-      .put("y", (bounds.top / density).toDouble())
-      .put("width", (bounds.width() / density).toDouble())
-      .put("height", (bounds.height() / density).toDouble())
+      .put("x", frame.x)
+      .put("y", frame.y)
+      .put("width", frame.width)
+      .put("height", frame.height)
 
-  private fun insets(top: Float, right: Float, bottom: Float, left: Float) =
+  private fun insets(insets: RNDuoFoldGeometry.Insets) =
     JSONObject()
-      .put("top", top.toDouble())
-      .put("right", right.toDouble())
-      .put("bottom", bottom.toDouble())
-      .put("left", left.toDouble())
-
-  companion object {
-    /** Maps WindowManager posture, or the hinge angle when no fold is reported, to DuoHingeStatus. */
-    fun hingeStatus(feature: FoldingFeature?, angleDegrees: Double?, hasHinge: Boolean): String {
-      if (feature != null) {
-        return if (feature.state == FoldingFeature.State.HALF_OPENED) "partiallyOpen" else "fullyOpen"
-      }
-      if (!hasHinge) return "unavailable"
-      // A foldable that reports no fold is usually closed and showing its outer display.
-      return when {
-        angleDegrees == null -> "unknown"
-        angleDegrees < 15 -> "closed"
-        angleDegrees < 165 -> "partiallyOpen"
-        else -> "fullyOpen"
-      }
-    }
-  }
+      .put("top", insets.top)
+      .put("right", insets.right)
+      .put("bottom", insets.bottom)
+      .put("left", insets.left)
 }
 
 private class EnvironmentChangeEvent(surfaceId: Int, viewId: Int, private val payload: String) :

@@ -59,6 +59,8 @@ The camera and navigation visibility policy tests compile the same C++ helpers u
 yarn example e2e
 ```
 
+On Android, boot a foldable emulator (for example the Pixel Fold AVD), install a build of the example, and run `yarn example e2e:android`. The script sets the emulator's hinge angle through `adb emu` and checks the Hinge lab flat and half-open. Kotlin unit tests for the Android conversions run with `./gradlew :cawrestler_react-native-duo:testDebugUnitTest` from `example/android` (CI runs them in the Android job).
+
 The flows are not part of CI yet. Fold and hinge changes cannot be scripted in the simulator, and accessory scenes cannot connect there, so those paths stay on the manual checklist in [the compatibility guide](docs/COMPATIBILITY.md).
 
 ## Pull requests and protected main

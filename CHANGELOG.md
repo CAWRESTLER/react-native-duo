@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `DuoGeometryView` is native on Android foldables: it reports the fold in the view's own coordinates, including for nested and scrolled views, and the system-bar insets that overlap the view.
+- Kotlin unit tests for the Android hinge-status, fold-region, inset, and size-class conversions, run in CI's Android job.
+- Android Maestro flow and `yarn example e2e:android`, which checks the Hinge lab flat and half-open on a foldable emulator.
+
+### Fixed
+
+- Android no longer logs "Could not find generated setter" for the environment view.
+- Android provider `safeAreaInsets` now cover only the system bars that overlap the provider instead of the whole window's.
+
 ## 0.1.0 — 2026-10-08
 
 First stable release, published on npm `latest`. Exports labeled stable in [API stability](./docs/API_STABILITY.md) follow semantic versioning; experimental exports may change in minor releases. See the [release notes](./RELEASE_NOTES.md).

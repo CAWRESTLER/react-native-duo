@@ -43,6 +43,7 @@
     "build:android": "cd android && ./gradlew assembleDebug -DtestBuildType=debug -Dorg.gradle.jvmargs=-Xmx4g",
     "build:web": "expo export --platform web",
     "e2e": "maestro test .maestro",
+    "e2e:android": "scripts/e2e-android.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --no-cache"
   },

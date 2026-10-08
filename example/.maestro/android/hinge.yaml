@@ -1,0 +1,23 @@
+# Android foldable posture in the Hinge lab. Run through `yarn example e2e:android`,
+# which sets the emulator's hinge angle before each pass and supplies EXPECTED_STATUS.
+appId: dev.cawrestler.reactnativeduo.example
+tags: [android, hinge]
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "iPhone Duo API Lab"
+    timeout: 30000
+# Wide foldables show the sidebar; compact ones (clamshells, half-folded
+# tabletops) put the labs behind the navigation button.
+- runFlow:
+    when:
+      visible: "Show Duo Lab navigation"
+    commands:
+      - tapOn: "Show Duo Lab navigation"
+      - waitForAnimationToEnd
+- tapOn: "Hinge"
+- extendedWaitUntil:
+    visible: "Device hinge detected"
+    timeout: 15000
+- assertVisible: ${EXPECTED_STATUS}
