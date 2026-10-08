@@ -1,7 +1,7 @@
 {
   "name": "@cawrestler/react-native-duo",
   "version": "0.1.0",
-  "description": "Native iPhone Duo layout, toolbar, scene, hinge, and camera APIs for React Native",
+  "description": "Native iPhone Duo layout, toolbar, scene, hinge, and camera APIs for React Native, with Android foldable support",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -64,6 +64,8 @@
     "ios",
     "iphone-duo",
     "foldable",
+    "android",
+    "jetpack-windowmanager",
     "hinge",
     "uikit",
     "expo"
