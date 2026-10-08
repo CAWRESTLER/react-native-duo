@@ -30,10 +30,10 @@ Choose **iPhone Duo** when prompted. Rebuild the dev client after upgrading `@ca
 This template depends on the published npm package:
 
 ```sh
-npm install @cawrestler/react-native-duo@next
+npm install @cawrestler/react-native-duo
 ```
 
-Preview releases use the `next` dist-tag. See the [library README](https://github.com/CAWRESTLER/react-native-duo#readme) for Expo config plugin details, compatibility notes, and Android/web fallback behavior.
+Stable releases use npm's `latest` tag; previews use `next`. See the [library README](https://github.com/CAWRESTLER/react-native-duo#readme) for Expo config plugin details, compatibility notes, and Android/web fallback behavior.
 
 ## License
 

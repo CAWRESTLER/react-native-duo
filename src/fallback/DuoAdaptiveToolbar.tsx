@@ -12,7 +12,7 @@ import type { DuoAdaptiveToolbarProps, DuoToolbarState } from '../types';
 /**
  * Adaptive native tabs, navigation actions, and tools that move to the vertical axis on iPhone Duo.
  *
- * @experimental The API may change before `0.1.0`; see docs/API_STABILITY.md.
+ * @experimental The API may change in a minor release; see docs/API_STABILITY.md.
  */
 export function DuoAdaptiveToolbar({
   children,

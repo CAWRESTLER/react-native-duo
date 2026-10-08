@@ -13,7 +13,7 @@ You do not need Duo hardware to start: run the **iPhone Duo** simulator in **Xco
 Template: [react-native-duo-expo-starter](https://github.com/CAWRESTLER/react-native-duo-expo-starter) · Full lab: [`example/`](./example/) · npm: [`@cawrestler/react-native-duo`](https://www.npmjs.com/package/@cawrestler/react-native-duo)
 
 ```sh
-npm install @cawrestler/react-native-duo@next
+npm install @cawrestler/react-native-duo
 npx expo install expo-build-properties
 npx expo run:ios
 ```
@@ -56,7 +56,7 @@ function Pane({ title, detail }: { title: string; detail: string }) {
 }
 ```
 
-Preview releases ship on npm's `next` tag (`0.1.0-preview.2` at time of writing)—not a stable compatibility promise. See [release notes](./RELEASE_NOTES.md) and [compatibility](./docs/COMPATIBILITY.md). Deeper guides: [navigation](./docs/NAVIGATION.md), [API coverage matrix](./docs/API_COVERAGE.md).
+`0.1.0` is the first stable release, on npm's `latest` tag. Exports labeled stable in [API stability](./docs/API_STABILITY.md) follow semantic versioning; experimental ones may still change. See [release notes](./RELEASE_NOTES.md) and [compatibility](./docs/COMPATIBILITY.md). Deeper guides: [navigation](./docs/NAVIGATION.md), [API coverage matrix](./docs/API_COVERAGE.md).
 
 ## What you get
 
@@ -137,21 +137,21 @@ The [compatibility guide](./docs/COMPATIBILITY.md) separates the locked baseline
 
 For local or not-yet-published changes, run `yarn pack:check` and then `npm pack --ignore-scripts` in this repository. Install the resulting `.tgz` file in your app with `npm install /absolute/path/to/package.tgz` and rebuild its native development client. This tests the actual distribution without publishing it. See the [maintainer publication steps](./CONTRIBUTING.md#publishing).
 
-To follow published previews, explicitly choose the preview channel with the command used by your app:
+Install the current stable release with the command your app uses:
 
 ```sh
-npm install @cawrestler/react-native-duo@next
+npm install @cawrestler/react-native-duo
 ```
 
 ```sh
-yarn add @cawrestler/react-native-duo@next
+yarn add @cawrestler/react-native-duo
 ```
 
 ```sh
-pnpm add @cawrestler/react-native-duo@next
+pnpm add @cawrestler/react-native-duo
 ```
 
-To reproduce this version once published, use `@cawrestler/react-native-duo@0.1.0-preview.2` instead of `@next`. Tags can move; verify them with `npm view @cawrestler/react-native-duo dist-tags`. The first preview was also assigned `latest`; a retained alias is not a stable-support guarantee. Preview evaluation requires a native rebuild; this is not an Expo Go or JavaScript-only update.
+Pin `@cawrestler/react-native-duo@0.1.0` to reproduce this release exactly. Future previews publish to `@next`. Installing or upgrading requires a native rebuild; this is not an Expo Go or JavaScript-only update.
 
 ### Expo
 

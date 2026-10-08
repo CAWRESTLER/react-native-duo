@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 — 2026-10-08
+
+First stable release, published on npm `latest`. Exports labeled stable in [API stability](./docs/API_STABILITY.md) follow semantic versioning; experimental exports may change in minor releases. See the [release notes](./RELEASE_NOTES.md).
 
 ### Added
 

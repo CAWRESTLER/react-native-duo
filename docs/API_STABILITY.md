@@ -1,17 +1,17 @@
 # API stability
 
-> **Status: proposal.** The maintainer has not confirmed this classification yet. Until `0.1.0` ships, every API can still change.
+> **Status: adopted for `0.1.0`.** Stable exports follow semantic versioning from `0.1.0`; experimental exports may change in any minor release.
 
-Before `0.1.0`, each public export is labeled **stable** or **experimental**:
+Each public export is labeled **stable** or **experimental**:
 
 - **Stable:** Breaking changes after `0.1.0` need a major version (or, while `0.x`, a minor version with a changelog migration note).
 - **Experimental:** May change in any minor release. These exports carry an `@experimental` JSDoc tag, so editors show the label in hover info.
 
-## Proposed classification
+## Classification
 
-| Export                                                              | Proposed status | Reason                                                                                                                           |
+| Export                                                              | Status          | Reason                                                                                                                           |
 | ------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `DuoProvider`                                                       | Stable          | Small surface, unchanged since preview.1 apart from additive subscription work.                                                  |
+| `DuoProvider`                                                       | Stable          | Small surface; native on iOS and Android foldables, fallback on web.                                                              |
 | `useDuo`, `useDuoHinge`, `useDuoReservedRegions`                    | Stable          | Read-only state with documented fallbacks.                                                                                       |
 | `useDuoGeometry`, `useDuoWindow`                                    | Stable          | Read-only state; added in preview.2 without changes since.                                                                       |
 | `DuoGeometryView`                                                   | Stable          | View-local measurement with a JavaScript fallback.                                                                               |
@@ -23,9 +23,9 @@ Before `0.1.0`, each public export is labeled **stable** or **experimental**:
 | `DuoSceneAccessory`                                                 | Experimental    | React `children` support is new, and connecting a real accessory scene is unverified on a device.                                 |
 | `@cawrestler/react-native-duo/jest` (`setMockDuoEnvironment`, etc.) | Experimental    | New test helper.                                                                                                                 |
 
-## Open naming questions (maintainer decision)
+## Deferred naming questions
 
-These are breaking renames if they change after `0.1.0`. Decide them before stabilizing:
+`0.1.0` shipped with the current names. Renaming a stable export below is now a breaking change, so it needs a deprecation period and a minor-version migration note:
 
 1. **`DuoAdaptiveToolbar` vs `DuoNavigationToolbar`.** The names don't make clear that one owns its bars and the other attaches to a navigator. Options: keep both; rename to `DuoToolbarHost` / `DuoScreenToolbar`; or document the split only.
 2. **Duplicate geometry.** `useDuo().reservedRegions` and `useDuo().geometry.reservedRegions` both exist, and `geometry` overlaps with `window` for width and height. Keep both, or drop the top-level `reservedRegions` from the environment?
@@ -34,4 +34,4 @@ These are breaking renames if they change after `0.1.0`. Decide them before stab
 5. **Scene accessory kinds.** `kind="externalDisplay"` maps to Apple's `externalNonInteractive…` accessory. Keep the shorter name, or match Apple's?
 6. **`DuoSceneAccessory` `content`.** With React `children` available, should the declarative `content` stay a first-class option, or become just the fallback and background?
 
-Record each decision in the CHANGELOG. Once the classification is confirmed, change the status line at the top of this page.
+Record each decision in the CHANGELOG.

@@ -6,7 +6,7 @@ import type { DuoCameraViewProps } from '../types';
 /**
  * Duo inner/outer camera preview with direction and smart-framing controls.
  *
- * @experimental The API may change before `0.1.0`; see docs/API_STABILITY.md.
+ * @experimental The API may change in a minor release; see docs/API_STABILITY.md.
  */
 export function DuoCameraView({
   location = 'outer',
