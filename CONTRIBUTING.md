@@ -73,7 +73,7 @@ Describe the observable behavior and how you verified it. Include the affected s
 
 Run `yarn validate`. Build the native example with Xcode 27.1+ and verify all seven screens against the Swift lab in Open, partial/Book, and compact poses. Test scrolling, navigation, tab selection, toolbar actions, overflow, arrangement controls, scene accessory registration, and user-triggered camera permission. Record the tested commit, device/simulator, and results in the release pull request. Camera discovery and accessory availability depend on simulator/device support; record unavailable hardware paths rather than describing them as fully tested.
 
-CI checks package lint/types/tests, distribution contents, and example builds on Android, iOS, and web. The required iOS job uses the `xcode-27` runner label and needs Xcode 27.1 with its SDK. An unavailable runner leaves CI pending and blocks merge/publication. Passing automated checks alone does not establish native behavior or visual parity.
+CI checks package lint/types/tests, distribution contents, and example builds on Android, iOS, and web. The required iOS job uses the `xcode-27` runner label and needs Xcode 27.1 with its SDK. An unavailable runner leaves CI pending and blocks merge/publication. Pull requests that only change Markdown, `docs/`, or issue templates skip the native build steps; those jobs still report success. Pushes to `main` and merge queues always run every build. Android CI builds a single ABI (`x86_64`), and iOS CI reuses compiler output through ccache. Passing automated checks alone does not establish native behavior or visual parity.
 
 ## Publishing
 
