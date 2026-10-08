@@ -1,6 +1,6 @@
 {
   "name": "@cawrestler/react-native-duo",
-  "version": "0.1.0-preview.2",
+  "version": "0.1.0",
   "description": "Native iPhone Duo layout, toolbar, scene, hinge, and camera APIs for React Native",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -84,7 +84,7 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public",
-    "tag": "next"
+    "tag": "latest"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",

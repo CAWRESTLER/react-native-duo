@@ -11,7 +11,7 @@ import type {
 /**
  * Screen actions attached to an existing native-stack navigator.
  *
- * @experimental The API may change before `0.1.0`; see docs/API_STABILITY.md.
+ * @experimental The API may change in a minor release; see docs/API_STABILITY.md.
  */
 export function DuoNavigationToolbar({
   active = true,
