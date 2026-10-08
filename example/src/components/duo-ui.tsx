@@ -370,8 +370,10 @@ export function ToggleRow({
         {label}
       </Text>
       <Switch
+        accessibilityLabel={label}
         disabled={disabled}
         onValueChange={onChange}
+        testID={`toggle-${label}`}
         trackColor={{ false: palette.separator, true: palette.green }}
         value={value}
       />

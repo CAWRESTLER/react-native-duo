@@ -1,0 +1,11 @@
+# Opens a lab from the compact navigation menu. Usage:
+#   - runFlow: { file: subflows/open-lab.yaml, env: { LAB: Arrangements } }
+appId: dev.cawrestler.reactnativeduo.example
+---
+- extendedWaitUntil:
+    visible: "Show Duo Lab navigation"
+    timeout: 20000
+- tapOn: "Show Duo Lab navigation"
+- waitForAnimationToEnd
+# Menu rows announce "<symbol>, <lab>, <subtitle>".
+- tapOn: ".*, ${LAB}, .*"

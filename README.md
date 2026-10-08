@@ -929,7 +929,41 @@ DuoCameraView;
 DuoSceneAccessory;
 ```
 
-All public prop, state, and value types are exported from the package root.
+All public prop, state, and value types are exported from the package root. Stable and experimental exports are listed in [API stability](./docs/API_STABILITY.md); experimental ones carry an `@experimental` tag in editor hover info.
+
+## Testing your app with Jest
+
+The package ships a Jest mock. Components render with the JavaScript fallbacks (the Android/web behavior), so your tests need no native views. The environment defaults to a non-Duo device.
+
+```js
+// jest.setup.js
+jest.mock('@cawrestler/react-native-duo', () =>
+  require('@cawrestler/react-native-duo/jest')
+);
+```
+
+Simulate a Duo, a hinge pose, or regions with `setMockDuoEnvironment`. Each call merges over the defaults (not the previous call); nested objects (`hinge`, `geometry`, `window`) merge field by field. Every mounted `DuoProvider` updates:
+
+```tsx
+import {
+  resetMockDuoEnvironment,
+  setMockDuoEnvironment,
+} from '@cawrestler/react-native-duo/jest';
+
+afterEach(() => resetMockDuoEnvironment());
+
+it('shows the tabletop layout when half open', async () => {
+  setMockDuoEnvironment({
+    isDuo: true,
+    hinge: { available: true, status: 'partiallyOpen', angleDegrees: 95 },
+  });
+  // render(<DuoProvider><Screen /></DuoProvider>) ...
+  // Inside a test, wrap later changes in act():
+  // act(() => setMockDuoEnvironment({ isDuo: true, hinge: { status: 'fullyOpen' } }));
+});
+```
+
+The package publishes ES modules, so make sure Jest transforms it, for example by adding `@cawrestler/react-native-duo` to the `transformIgnorePatterns` allow-list your React Native preset already uses.
 
 ## Troubleshooting
 

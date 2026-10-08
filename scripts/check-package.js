@@ -187,7 +187,12 @@ async function checkPackage() {
       consumerRequire.resolve(metadata.name),
       path.join(packageRoot, metadata.main)
     );
-    for (const subpath of ['app.plugin', 'app.plugin.js', 'package.json']) {
+    for (const subpath of [
+      'app.plugin',
+      'app.plugin.js',
+      'jest',
+      'package.json',
+    ]) {
       consumerRequire.resolve(`${metadata.name}/${subpath}`);
     }
     const { withPlugins } = consumerRequire('@expo/config-plugins');

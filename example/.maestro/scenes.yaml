@@ -1,0 +1,26 @@
+# DuoSceneAccessory: React-content and declarative registrations without a
+# connected accessory scene (the simulator cannot attach one).
+appId: dev.cawrestler.reactnativeduo.example
+tags: [scenes]
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    file: subflows/open-lab.yaml
+    env:
+      LAB: Scenes
+- scrollUntilVisible:
+    element: "No accessory scene connected"
+    visibilityPercentage: 100
+    centerElement: true
+- tapOn:
+    id: "toggle-Render React content"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "No accessory scene connected"
+    visibilityPercentage: 100
+    centerElement: true
+- tapOn:
+    id: "toggle-Render React content"
+- waitForAnimationToEnd
+- assertVisible: "No accessory scene connected"
