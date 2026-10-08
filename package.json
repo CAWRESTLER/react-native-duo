@@ -10,6 +10,11 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
+    "./jest": {
+      "cawrestler-react-native-duo-source": "./src/jest.tsx",
+      "types": "./lib/typescript/src/jest.d.ts",
+      "default": "./lib/module/jest.js"
+    },
     "./package.json": "./package.json",
     "./app.plugin": "./app.plugin.js",
     "./app.plugin.js": "./app.plugin.js"

@@ -51,6 +51,16 @@ yarn pack:check
 
 The camera and navigation visibility policy tests compile the same C++ helpers used by the native views. They need a C++17 compiler (`c++` by default, or the compiler executable selected by `CXX`). Xcode's command-line tools provide it on macOS; install a C++ build toolchain for Linux development. These policy tests are not a substitute for UIKit/AVFoundation interaction tests.
 
+### End-to-end tests
+
+[Maestro](https://maestro.dev) flows in `example/.maestro/` drive the Duo Lab example on the iPhone Duo simulator: arrangement switching (split ↔ overlay), adaptive toolbar placement (vertical rail ↔ horizontal bar), and scene accessory registration. Install Maestro (`brew install mobile-dev-inc/tap/maestro`; it needs Java 17+), install a build of the example on a booted iPhone Duo simulator, then run:
+
+```sh
+yarn example e2e
+```
+
+The flows are not part of CI yet. Fold and hinge changes cannot be scripted in the simulator, and accessory scenes cannot connect there, so those paths stay on the manual checklist in [the compatibility guide](docs/COMPATIBILITY.md).
+
 ## Pull requests and protected main
 
 Work on a feature branch, push it, and open a pull request targeting `main`. The `Protect main` server ruleset requires a pull request, resolved review conversations, an up-to-date branch, and a successful `CI Required` check. That check requires all six jobs to succeed: `lint`, `test`, `build-library`, `build-android`, `build-ios`, and `build-web`. Failed, cancelled, and skipped jobs cannot authorize a merge. Squash merging preserves the required linear history; main deletions and force updates are blocked.

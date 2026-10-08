@@ -1,0 +1,17 @@
+# DuoAdaptiveToolbar: native toolbar rail placement and the vertical opt-out.
+appId: dev.cawrestler.reactnativeduo.example
+tags: [toolbar]
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    file: subflows/open-lab.yaml
+    env:
+      LAB: Adaptive Bars
+- assertVisible: "Vertical on .* edge"
+- tapOn:
+    id: "toggle-Disable vertical bars"
+- assertVisible: "Horizontal bar"
+- tapOn:
+    id: "toggle-Disable vertical bars"
+- assertVisible: "Vertical on .* edge"

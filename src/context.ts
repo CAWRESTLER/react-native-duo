@@ -165,6 +165,11 @@ export function useDuoReservedRegions() {
   return useDuoField('reservedRegions');
 }
 
+/**
+ * Duo camera discovery.
+ *
+ * @experimental The API may change before `0.1.0`; see docs/API_STABILITY.md.
+ */
 export function useDuoCameras() {
   return useDuoField('cameras');
 }

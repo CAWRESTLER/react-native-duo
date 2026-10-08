@@ -1,0 +1,18 @@
+# DuoArrangementView: switching between split and overlay arrangements.
+appId: dev.cawrestler.reactnativeduo.example
+tags: [arrangements]
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    file: subflows/open-lab.yaml
+    env:
+      LAB: Arrangements
+- tapOn: "Split"
+- assertVisible: "Above the Fold"
+- assertVisible: "Up Next"
+- tapOn: "Overlay"
+- assertVisible: "Mini Queue"
+- tapOn: "Split"
+- assertVisible: "Up Next"
+- assertNotVisible: "Mini Queue"
