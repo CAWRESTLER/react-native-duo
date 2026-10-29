@@ -107,6 +107,7 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
 
 - (void)invalidateVerticalBarsForScreen:(UIViewController *)screen navigation:(UINavigationController *)navigation
 {
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     [screen setNeedsUpdateOfVerticalBarConfiguration];
     [navigation setNeedsUpdateOfVerticalBarConfiguration];
@@ -116,6 +117,7 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
     UIWindow *window = self.window ?: navigation.viewIfLoaded.window;
     [window.rootViewController setNeedsUpdateOfVerticalBarConfiguration];
   }
+#endif
 }
 
 - (void)releaseOwnership
@@ -137,10 +139,12 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
       [screen setToolbarItems:_previousItems animated:NO];
       changedScreenConfiguration = YES;
     }
+#if RNDUO_HAS_IOS_27_1_SDK
     if (@available(iOS 27.1, *)) {
       if (stillOwnsItems && screen.navigationItem.verticalBarCompressionBehavior == _installedCompression) screen.navigationItem.verticalBarCompressionBehavior =
           (UIVerticalBarCompressionBehavior)_previousCompression;
     }
+#endif
     objc_setAssociatedObject(screen, &RNDuoNavigationToolbarOwnerKey, nil, OBJC_ASSOCIATION_ASSIGN);
   }
   RNDuoNavigationToolbarVisibilityCoordinator *coordinator = RNDuoVisibilityCoordinator(navigation, NO);
@@ -208,7 +212,9 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
     _screen = screen;
     _navigation = navigation;
     _previousItems = screen.toolbarItems;
+#if RNDUO_HAS_IOS_27_1_SDK
     if (@available(iOS 27.1, *)) _previousCompression = screen.navigationItem.verticalBarCompressionBehavior;
+#endif
     _configurationDirty = YES;
   }
   if (_installedItems && screen.toolbarItems != _installedItems) {
@@ -273,6 +279,7 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
       }
       [_inlineToolbar setItems:inlineButtons animated:NO];
     }
+#if RNDUO_HAS_IOS_27_1_SDK
     if (@available(iOS 27.1, *)) {
       screen.navigationItem.verticalBarCompressionBehavior = [_compression isEqual:@"preferBarItems"]
           ? UIVerticalBarCompressionBehaviorPrefersBarItems
@@ -280,6 +287,7 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
           : UIVerticalBarCompressionBehaviorAutomatic;
       _installedCompression = screen.navigationItem.verticalBarCompressionBehavior;
     }
+#endif
     _configurationDirty = NO;
     changedConfiguration = YES;
   }
@@ -345,14 +353,18 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
     if ([badge isKindOfClass:NSNumber.class]) button.badge = [UIBarButtonItemBadge badgeWithCount:[badge unsignedIntegerValue]];
     else if ([badge isKindOfClass:NSString.class]) button.badge = [badge length] ? [UIBarButtonItemBadge badgeWithString:badge] : [UIBarButtonItemBadge indicatorBadge];
   }
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     button.axisBehavior = [item[@"axisBehavior"] isEqual:@"horizontalOnly"] ? UIBarButtonItemAxisBehaviorHorizontalOnly
         : [item[@"axisBehavior"] isEqual:@"verticalPreferred"] ? UIBarButtonItemAxisBehaviorVerticalPreferred : UIBarButtonItemAxisBehaviorAutomatic;
   }
+#endif
+#if RNDUO_HAS_IOS_27_SDK
   if (@available(iOS 27.0, *)) {
     button.visibilityPriority = [item[@"visibilityPriority"] isEqual:@"low"] ? UIBarButtonItemVisibilityPriorityLow
         : [item[@"visibilityPriority"] isEqual:@"high"] ? UIBarButtonItemVisibilityPriorityHigh : UIBarButtonItemVisibilityPriorityStandard;
   }
+#endif
   return button;
 }
 
@@ -373,7 +385,9 @@ static RNDuoNavigationToolbarVisibility::Owner RNDuoVisibilityOwner(RNDuoNavigat
   if (_usesInlineToolbar && !_inlineToolbar.hidden) insets.bottom += _inlineToolbarHeight;
   NSString *edge = RNDuoVerticalBarEdgeName(self.traitCollection);
   BOOL native = NO;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) native = YES;
+#endif
   NSString *actionPresentation = @"none";
   if ([_attachment isEqualToString:@"attached"] && _installedItems.count > 0) {
     if (_usesInlineToolbar) {

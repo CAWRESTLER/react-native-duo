@@ -53,8 +53,10 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   UIView *_sensorView;
   UIView<RCTComponentViewProtocol> *_reactChild;
   BOOL _includeInactiveRegions;
+#if RNDUO_HAS_IOS_27_1_SDK
   UIHingeInteraction *_hingeInteraction API_AVAILABLE(ios(27.1));
   UIHinge *_hinge API_AVAILABLE(ios(27.1));
+#endif
   NSDictionary *_lastPayloadObject;
   __weak UIScrollView *_observedScrollView;
   NSMapTable *_regionIdentifiers;
@@ -90,6 +92,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
     _windowRegionSnapshot = @[];
     _needsNativeSnapshotRefresh = YES;
 
+#if RNDUO_HAS_IOS_27_1_SDK
     if (@available(iOS 27.1, *)) {
       __weak __typeof(self) weakSelf = self;
       _hingeInteraction = [[UIHingeInteraction alloc] initWithUpdateHandler:^(UIHingeInteraction *interaction, UIHingeInteractionUpdate *update) {
@@ -102,6 +105,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
       }];
       [_sensorView addInteraction:_hingeInteraction];
     }
+#endif
   }
   return self;
 }
@@ -213,6 +217,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   [self scheduleEnvironmentUpdate];
 }
 
+#if RNDUO_HAS_IOS_27_1_SDK
 - (NSArray *)windowRegionsOfKind:(UIViewReservedRegionKind *)kind name:(NSString *)name API_AVAILABLE(ios(27.1))
 {
   UIViewReservedRegionQueryOptions options = _includeInactiveRegions
@@ -244,6 +249,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   }
   return result;
 }
+#endif
 
 - (NSArray *)localRegionsFromWindowSnapshot
 {
@@ -259,6 +265,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   return regions;
 }
 
+#if RNDUO_HAS_IOS_27_1_SDK
 - (NSArray *)duoCameras API_AVAILABLE(ios(27.1))
 {
   AVCaptureDeviceDiscoverySession *session = [AVCaptureDeviceDiscoverySession
@@ -291,6 +298,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   }
   return cameras;
 }
+#endif
 
 - (void)scheduleEnvironmentUpdate
 {
@@ -352,6 +360,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   NSMutableArray *regions = [NSMutableArray array];
   NSArray *cameras = @[];
 
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     supportsDuoApis = YES;
     if (_hinge != nil) {
@@ -387,6 +396,7 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
     [regions addObjectsFromArray:[self localRegionsFromWindowSnapshot]];
     cameras = _cameraSnapshot ?: @[];
   }
+#endif
 
   UIScreen *screen = self.window.screen ?: UIScreen.mainScreen;
   BOOL hasDuoCamera = NO;
@@ -450,7 +460,9 @@ static BOOL RNDuoContainsActiveScrollView(UIView *view)
   [super prepareForRecycle];
   _lastPayloadObject = nil;
   _reactChild = nil;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) _hinge = nil;
+#endif
 }
 
 - (void)dealloc
