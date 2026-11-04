@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- Native iOS compilation with older SDKs through compile-time guards around iOS 27.0/27.1 APIs, including arrangement-only static helpers. Older-SDK builds retain compatibility paths and report Duo features as unsupported; native Duo behavior still requires the iOS 27.1 SDK and runtime. Consuming-app simulator builds were tested with Xcode 26.3 and 27.1; physical Duo behavior and SDKs predating iOS 26 remain unverified.
 - Android no longer logs "Could not find generated setter" for the environment view.
 - Android provider `safeAreaInsets` now cover only the system bars that overlap the provider instead of the whole window's.
 
@@ -89,4 +90,4 @@ Initial developer preview, published with the intended npm `next` channel. Regis
 
 ### Requirements and limits
 
-This package requires the New Architecture and the iOS 27.1 SDK to compile its native iOS implementation. The demo uses React Native `0.88.0-rc.1`, React `19.3.0`, and Expo `58.0.0` as locked in this repository; other combinations are not a compatibility guarantee. Independent React Native scene sessions, photo/video capture, JavaScript camera frames, and full SwiftUI scene/automatic-arrangement policy parity are not part of this preview. Android/web provide layout and toolbar fallbacks, not native Duo features.
+This preview required the New Architecture and the iOS 27.1 SDK to compile its native iOS implementation; see Unreleased for older-SDK compilation support added later. The demo uses React Native `0.88.0-rc.1`, React `19.3.0`, and Expo `58.0.0` as locked in this repository; other combinations are not a compatibility guarantee. Independent React Native scene sessions, photo/video capture, JavaScript camera frames, and full SwiftUI scene/automatic-arrangement policy parity are not part of this preview. Android/web provide layout and toolbar fallbacks, not native Duo features.

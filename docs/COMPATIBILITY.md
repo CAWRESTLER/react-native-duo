@@ -13,11 +13,13 @@ This document describes the repository's reproducible test baseline and the evid
 | React Native Screens              | Direct example resolution `4.28.0` from `~4.28.0`   | Router also locks a transitive `5.0.0-alpha.3`; this is not a single-Screens-runtime claim. |
 | Safe Area Context                 | Direct example resolution `5.9.1` from `~5.9.1`     | The documented fixture uses screen-local measured insets.                                   |
 | Node / Yarn                       | Node `v24.21.0`, Yarn `4.11.0`                      | `.nvmrc`, `packageManager`, and immutable installation define the development toolchain.    |
-| Native iOS build                  | Xcode 27.1+, iOS 27.1 SDK                           | Runtime availability checks do not permit compilation with an older SDK.                    |
+| Native iOS build                  | Xcode 27.1+, iOS 27.1 SDK                           | Baseline for native Duo APIs; older-SDK builds use compatibility paths (see below).          |
 | Native Duo behavior               | iOS 27.1+, eligible Duo device/window state         | A simulator is useful for layout, not physical camera/display certification.                |
 | Expo loading                      | Native development build                            | Expo Go and a JavaScript-only update cannot add the native module.                          |
 
 The package's broad React/RN peer declarations allow evaluation; they do **not** assert that every peer version has been tested. The baseline is recorded in [compatibility-baseline.json](./compatibility-baseline.json). Updating it requires deliberate dependency/lockfile review and fresh validation, not merely changing the documented version numbers.
+
+With the SDK guards in this source checkout, Xcode 27.1 is not required merely to compile the native module. Consuming-app simulator builds were reported successful with Xcode 26.3 and 27.1, and the 26.3-built app launched on a standard iPhone simulator. Builds made without the iOS 27.1 SDK retain arrangement and conventional toolbar fallbacks and report Duo capabilities as unsupported, even on a newer runtime; native Duo features require rebuilding with the newer SDK and running iOS 27.1 or later. These results do not verify SDKs predating iOS 26, other host dependency combinations, or physical Duo folding/camera/accessory behavior.
 
 ```sh
 corepack enable
@@ -37,7 +39,7 @@ The compatibility check compares root/example manifests, relevant Yarn resolutio
 | Connie                                 | **Unverified**: app path, versions, and native/navigation configuration have not been inspected     | Inspect its manifest/lockfile and native host, then build and exercise the actual app. Do not infer compatibility from the reference demo. |
 | Other RN/Expo/navigation versions      | **Unverified**                                                                                      | A passing test on one stack is not a support claim for another.                                                                            |
 | Android and web                        | JavaScript layout/action fallbacks; CI has example build jobs                                       | Interaction/accessibility testing on the consuming platform; no native Duo telemetry or vertical UIKit rails.                              |
-| Older or non-Duo iOS runtime           | Availability/capability fallbacks                                                                   | Test the intended runtime with a binary built using the required SDK.                                                                      |
+| Older SDK or older/non-Duo iOS runtime | Availability/capability fallbacks                                                                   | Test the intended SDK/runtime combination; distinguish unsupported APIs from unavailable hardware.                                         |
 
 Use `DuoNavigationToolbar` for screen actions inside an existing native navigation hierarchy. The navigator owns its headers, back stack, tabs, modals, and window-wide status-bar preferences; the adapter must not create a competing root controller. Use `DuoAdaptiveToolbar` for standalone bar ownership. See the [navigation integration guide](./NAVIGATION.md) for the ownership contract and working example. One provider should surround the app's stable state/navigation tree; folding should not remount that tree.
 
@@ -51,7 +53,7 @@ Use `DuoNavigationToolbar` for screen actions inside an existing native navigati
 | React/unit regression tests             | Provider subscription isolation, fallback/state contracts, pure layout/navigation calculations where covered | UIKit placement, real touch routing, or AVFoundation session behavior      |
 | Native camera lifecycle tooling test    | Compiled policy-helper behavior for the modeled lifecycle transitions                                        | Real capture-device interruptions, permissions, or session recovery        |
 | Packed-distribution smoke check         | Actual entry points/types, codegen/native files, podspec and working config-plugin resolution                | All host toolchains or end-to-end application behavior                     |
-| iOS native build                        | Compilation/linking against the required SDK                                                                 | Folding, scrolling, accessibility, visual parity, or hardware presentation |
+| iOS native build                        | Compilation/linking against the selected SDK                                                                 | Folding, scrolling, accessibility, visual parity, or hardware presentation |
 | Android build / web export              | Those example build pipelines resolve and compile                                                            | Emulated Duo hardware behavior or platform interaction quality             |
 | Exact-commit release verification       | Reviewed version/notes, baseline alignment, successful required CI and explicit testing confirmation         | Independent verification of the maintainer's manual/device results         |
 

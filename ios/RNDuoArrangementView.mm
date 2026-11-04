@@ -10,6 +10,7 @@
 
 using namespace facebook::react;
 
+#if RNDUO_HAS_IOS_27_1_SDK
 static UIAxis RNDuoAxes(NSString *value)
 {
   if ([value isEqualToString:@"horizontal"]) return UIAxisHorizontal;
@@ -24,6 +25,7 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   if ([value isEqualToString:@"bottom"]) return NSDirectionalRectEdgeBottom;
   return NSDirectionalRectEdgeTrailing;
 }
+#endif
 
 @interface RNDuoArrangementPaneView : UIView
 @property (nonatomic, weak) UIView *mountedChild;
