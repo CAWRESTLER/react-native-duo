@@ -34,10 +34,12 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
 @end
 
 @implementation RNDuoToolbarContentController
+#if RNDUO_HAS_IOS_27_1_SDK
 - (UIVerticalBarBehavior)preferredVerticalBarBehavior API_AVAILABLE(ios(27.1))
 {
   return self.disablesVerticalBar ? UIVerticalBarBehaviorDisabled : UIVerticalBarBehaviorAutomatic;
 }
+#endif
 @end
 
 @interface RNDuoToolbarNavigationController : UINavigationController
@@ -45,6 +47,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
 @end
 
 @implementation RNDuoToolbarNavigationController
+#if RNDUO_HAS_IOS_27_1_SDK
 - (UIVerticalBarBehavior)preferredVerticalBarBehavior API_AVAILABLE(ios(27.1))
 {
   return self.disablesVerticalBar ? UIVerticalBarBehaviorDisabled : UIVerticalBarBehaviorAutomatic;
@@ -55,6 +58,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
   // Own it here instead of relying on forwarding through transient children.
   return nil;
 }
+#endif
 @end
 
 @interface RNDuoToolbarTabController : UITabBarController
@@ -62,6 +66,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
 @end
 
 @implementation RNDuoToolbarTabController
+#if RNDUO_HAS_IOS_27_1_SDK
 - (UIVerticalBarBehavior)preferredVerticalBarBehavior API_AVAILABLE(ios(27.1))
 {
   return self.disablesVerticalBar ? UIVerticalBarBehaviorDisabled : UIVerticalBarBehaviorAutomatic;
@@ -70,6 +75,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
 {
   return nil;
 }
+#endif
 @end
 
 @interface RNDuoToolbarView () <UITabBarControllerDelegate, UITabBarDelegate>
@@ -182,7 +188,9 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
   _configuredVerticalSizeClass = self.traitCollection.verticalSizeClass;
   _tabBarController.disablesVerticalBar = [_verticalBehavior isEqualToString:@"disabled"];
   BOOL usesHorizontalChrome = NO;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) usesHorizontalChrome = _tabBarController.disablesVerticalBar;
+#endif
   [self setUsesHorizontalChrome:usesHorizontalChrome];
   NSMutableArray<NSDictionary *> *tabItems = [NSMutableArray array];
   for (NSDictionary *item in _items) {
@@ -202,11 +210,13 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
                            navigationController:_navigationControllers[identifier]];
     }
   }
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     [_tabBarController setNeedsUpdateOfVerticalBarConfiguration];
     [_hostController setNeedsUpdateOfVerticalBarConfiguration];
     [self.window.rootViewController setNeedsUpdateOfVerticalBarConfiguration];
   }
+#endif
   if (_usesHorizontalChrome) [self layoutHorizontalChrome];
   [self moveReactChildToSelectedController];
   [self setNeedsLayout];
@@ -468,6 +478,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
     [navigationController setToolbarHidden:barItems.count == 0 animated:NO];
   }
 
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     if ([_compressionBehavior isEqualToString:@"preferBarItems"]) {
       navigationItem.verticalBarCompressionBehavior = UIVerticalBarCompressionBehaviorPrefersBarItems;
@@ -479,6 +490,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
     [contentController setNeedsUpdateOfVerticalBarConfiguration];
     [navigationController setNeedsUpdateOfVerticalBarConfiguration];
   }
+#endif
 }
 
 - (NSArray<UIMenuElement *> *)menuActionsForItem:(NSDictionary *)item
@@ -545,6 +557,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
           : [UIBarButtonItemBadge indicatorBadge];
     }
   }
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     NSString *axis = [item[@"axisBehavior"] isKindOfClass:[NSString class]] ? item[@"axisBehavior"] : @"automatic";
     if ([axis isEqualToString:@"horizontalOnly"]) {
@@ -555,6 +568,8 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
       button.axisBehavior = UIBarButtonItemAxisBehaviorAutomatic;
     }
   }
+#endif
+#if RNDUO_HAS_IOS_27_SDK
   if (@available(iOS 27.0, *)) {
     NSString *priority = [item[@"visibilityPriority"] isKindOfClass:[NSString class]]
         ? item[@"visibilityPriority"] : @"standard";
@@ -566,6 +581,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
       button.visibilityPriority = UIBarButtonItemVisibilityPriorityStandard;
     }
   }
+#endif
   return button;
 }
 
@@ -573,6 +589,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
 {
   [super didMoveToWindow];
   [self updateAdaptiveControllerHosting];
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     if (self.window) {
       [_tabBarController setNeedsUpdateOfVerticalBarConfiguration];
@@ -580,6 +597,7 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
       [self.window.rootViewController setNeedsUpdateOfVerticalBarConfiguration];
     }
   }
+#endif
   dispatch_async(dispatch_get_main_queue(), ^{ [self emitStateIfNeeded]; });
 }
 
@@ -946,7 +964,9 @@ static UIEdgeInsets RNDuoValidatedBarInsets(UIEdgeInsets insets, CGRect bounds)
   UIEdgeInsets contentInsets = [self resolvedContentInsets];
   CGSize contentSize = _containerView.bounds.size;
   BOOL native = NO;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) native = YES;
+#endif
   NSDictionary *payloadObject = @{
     @"native": @(native),
     @"verticalBarEdge": edge,

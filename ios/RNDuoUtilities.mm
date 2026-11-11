@@ -37,6 +37,7 @@ NSString *RNDuoJSONString(id value)
 
 NSString *RNDuoVerticalBarEdgeName(UITraitCollection *traits)
 {
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     switch (traits.verticalBarEdge) {
       case UIVerticalBarEdgeLeading: return @"leading";
@@ -44,6 +45,7 @@ NSString *RNDuoVerticalBarEdgeName(UITraitCollection *traits)
       case UIVerticalBarEdgeUnspecified: return @"unspecified";
     }
   }
+#endif
   return @"unavailable";
 }
 

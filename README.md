@@ -120,14 +120,14 @@ These are API gaps, not silent fallbacks. Components report support and live nat
 ## Requirements
 
 - React Native with the New Architecture enabled. The native views use Fabric.
-- Xcode 27.1 or newer to compile the Duo SDK symbols.
+- Xcode 27.1 or newer to enable the native Duo APIs. Older-SDK builds use compatibility paths; consuming-app simulator builds have been tested with Xcode 26.3.
 - iOS 27.1 or newer for the native Duo implementations.
 - A Duo simulator or device to exercise hardware-specific behavior.
 - Expo Go is **not** supported because this package contains native code. Expo projects need a development build.
 
 The library and Duo Lab example use React Native `0.88.0-rc.1` and React `19.3.0`; the example's lockfile resolves Expo SDK `58.0.0`. This repository tracks the Duo SDK and React Native release candidate used to test the demo. Other React Native/Expo combinations are not an asserted compatibility guarantee. Keep the locked versions aligned when reproducing it. [Expo's SDK version matrix](https://docs.expo.dev/versions/v58.0.0/) documents the corresponding React Native/React release line.
 
-The package's iOS deployment target follows the host React Native app. Runtime availability checks keep older iOS versions on safe fallbacks, but building the native target still requires the iOS 27.1 SDK.
+The package's iOS deployment target follows the host React Native app. Compile-time SDK guards allow older-SDK builds, and runtime availability checks keep older iOS versions on safe fallbacks. Builds made without the iOS 27.1 SDK report Duo features as unsupported even when run on iOS 27.1 or newer; enabling those features requires rebuilding with the newer SDK. SDKs predating iOS 26 have not been verified.
 
 ### Compatibility and validation
 
@@ -286,7 +286,7 @@ function Diagnostics() {
 }
 ```
 
-- `supportsDuoApis` means the running iOS version supports the SDK surface.
+- `supportsDuoApis` means the native build includes the Duo SDK surface and the running iOS version supports it.
 - `isDuo` means the current hierarchy reports a hinge, reserved region, or Duo camera. Use this for device-aware UI; do not infer Duo from screen dimensions.
 - `hinge` contains availability, status, and angle in radians and degrees.
 - `reservedRegions` contains division and occlusion frames, margins, and active state.
@@ -876,7 +876,7 @@ For the Swift lab's camera cue, use declarative typography rather than another R
 
 The package is designed so shared app code does not need platform guards:
 
-- iOS before 27.1 uses compatibility paths inside the native views: a manually laid-out arrangement and conventional horizontal UIKit tabs/tools. The Duo-specific `native` capability flags remain false.
+- Builds made with an SDK older than iOS 27.1, or running on iOS before 27.1, use compatibility paths inside the native views: a manually laid-out arrangement and conventional horizontal UIKit tabs/tools. `supportsDuoApis` and the Duo-specific `native` capability flags remain false.
 - Android and web use React Native arrangement and toolbar fallbacks. These offer layout and selectable labeled actions/tabs rather than native SF Symbols, vertical rails, or UIKit overflow menus.
 - On Android foldables (Pixel Fold, Galaxy Z Fold/Flip, and other devices Jetpack WindowManager supports), `DuoProvider` is native: `useDuoHinge()` reports `fullyOpen`/`partiallyOpen` from the fold posture (or `closed` from the hinge-angle sensor when the device is folded shut), `angleDegrees` comes from the hinge-angle sensor where the device has one, and the fold appears in `useDuoReservedRegions()` as a `division` region (`occlusion` when the hinge hides content), active while it separates content. `DuoArrangementView` places its panes on either side of an active fold. `isDuo` and `supportsDuoApis` stay `false` because they describe iPhone Duo; check `hinge.available` for foldable-aware layouts. Android phones without a hinge report the same fallback values as before.
 - Camera and scene accessory components report `supported: false` where native APIs are unavailable.

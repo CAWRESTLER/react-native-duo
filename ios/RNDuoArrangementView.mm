@@ -10,6 +10,7 @@
 
 using namespace facebook::react;
 
+#if RNDUO_HAS_IOS_27_1_SDK
 static UIAxis RNDuoAxes(NSString *value)
 {
   if ([value isEqualToString:@"horizontal"]) return UIAxisHorizontal;
@@ -24,6 +25,7 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   if ([value isEqualToString:@"bottom"]) return NSDirectionalRectEdgeBottom;
   return NSDirectionalRectEdgeTrailing;
 }
+#endif
 
 @interface RNDuoArrangementPaneView : UIView
 @property (nonatomic, weak) UIView *mountedChild;
@@ -51,7 +53,9 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
 @end
 
 @implementation RNDuoArrangementView {
+#if RNDUO_HAS_IOS_27_1_SDK
   UIArrangementViewController *_arrangementController API_AVAILABLE(ios(27.1));
+#endif
   UIViewController *_primaryController;
   UIViewController *_secondaryController;
   RNDuoArrangementPaneView *_primaryContainer;
@@ -94,6 +98,7 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
     _secondaryContainer.onLayout = ^{ [weakSelf emitStateIfNeeded]; };
     self.clipsToBounds = YES;
 
+#if RNDUO_HAS_IOS_27_1_SDK
     if (@available(iOS 27.1, *)) {
       _arrangementController = [[UIArrangementViewController alloc] init];
       [_arrangementController setViewController:_primaryController
@@ -104,7 +109,9 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
       _arrangementController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
       self.contentView = _arrangementController.view;
       [self applyNativeArrangement];
-    } else {
+    } else
+#endif
+    {
       _fallbackContainer = [[UIView alloc] init];
       _fallbackContainer.backgroundColor = UIColor.clearColor;
       self.contentView = _fallbackContainer;
@@ -122,10 +129,13 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   _primaryFraction = MAX(0.05, MIN(0.95, newProps.primaryFraction ?: 0.5));
   _animated = newProps.animated;
   [super updateProps:props oldProps:oldProps];
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) [self applyNativeArrangement];
+#endif
   [self setNeedsLayout];
 }
 
+#if RNDUO_HAS_IOS_27_1_SDK
 - (void)applyNativeArrangement API_AVAILABLE(ios(27.1))
 {
   if ([_arrangement isEqualToString:@"overlay"]) {
@@ -159,10 +169,12 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   }
   dispatch_async(dispatch_get_main_queue(), ^{ [self emitStateIfNeeded]; });
 }
+#endif
 
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     if (self.window && !_arrangementController.parentViewController) {
       UIViewController *host = RNDuoFindViewController(self);
@@ -177,6 +189,7 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
       _hostController = nil;
     }
   }
+#endif
 }
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
@@ -188,9 +201,11 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
   }
 
   UIView *destination = _fallbackContainer;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     destination = index == 0 ? _primaryController.view : _secondaryController.view;
   }
+#endif
   [destination insertSubview:childComponentView atIndex:MIN(index, destination.subviews.count)];
   childComponentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   childComponentView.frame = destination.bounds;
@@ -218,13 +233,16 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
 - (void)layoutSubviews
 {
   [super layoutSubviews];
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     _arrangementController.view.frame = self.bounds;
     _primaryChild.frame = _primaryController.view.bounds;
     _secondaryChild.frame = _secondaryController.view.bounds;
     [_primaryContainer setNeedsLayout];
     [_secondaryContainer setNeedsLayout];
-  } else {
+  } else
+#endif
+  {
     [self layoutFallback];
   }
   [self emitStateIfNeeded];
@@ -263,14 +281,12 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
 {
   UIView *pane = primary ? _primaryContainer : _secondaryContainer;
   CGRect frame = [self convertRect:pane.bounds fromView:pane];
-  if (@available(iOS 27.1, *)) {
-    // Native arrangement owns the frame; the reported size lets Yoga reflow
-    // descendants to it instead of retaining the host's old full width.
-  } else {
+  if (_fallbackContainer) {
     frame = primary ? _primaryChild.frame : _secondaryChild.frame;
   }
   NSDictionary *frameValue = @{ @"x": @(frame.origin.x), @"y": @(frame.origin.y),
       @"width": @(frame.size.width), @"height": @(frame.size.height) };
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     UIArrangementViewState *state = [_arrangementController stateForPlacement:primary
         ? UIArrangementViewControllerViewPlacementPrimary
@@ -279,6 +295,7 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
       return @{ @"frame": frameValue, @"zIndex": @(state.zIndex), @"splitAxis": RNDuoAxisName(state.splitAxis), @"isHidden": @(state.isHidden) };
     }
   }
+#endif
   return @{
     @"frame": frameValue,
     @"zIndex": @((!primary && [_arrangement isEqualToString:@"overlay"]) ? 1 : 0),
@@ -291,7 +308,9 @@ static NSDirectionalRectEdge RNDuoOverlayEdge(NSString *value)
 {
   if (!_eventEmitter) return;
   BOOL native = NO;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) native = YES;
+#endif
   NSString *payload = RNDuoJSONString(@{
     @"native": @(native),
     @"arrangement": _arrangement,

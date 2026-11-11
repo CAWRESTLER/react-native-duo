@@ -172,6 +172,7 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
     willConnectToSession:(UISceneSession *)session
                  options:(UISceneConnectionOptions *)connectionOptions API_AVAILABLE(ios(27.0))
 {
+#if RNDUO_HAS_IOS_27_SDK
   if (![scene isKindOfClass:[UIWindowScene class]]) return;
   NSDictionary *userInfo = [connectionOptions.sceneAccessoryUserInfo isKindOfClass:[NSDictionary class]]
       ? connectionOptions.sceneAccessoryUserInfo : @{};
@@ -193,6 +194,7 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
   _host = host;
   _contentView = controller.view;
   [host accessorySceneDidConnectWithView:controller.view];
+#endif
 }
 
 - (void)sceneDidDisconnect:(UIScene *)scene
@@ -208,7 +210,9 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
 
 @implementation RNDuoSceneAccessoryView {
   UIView *_emptyView;
+#if RNDUO_HAS_IOS_27_SDK
   UISceneAccessoryRegistration *_registration API_AVAILABLE(ios(27.0));
+#endif
   __weak UIViewController *_registrationHost;
   NSString *_kind;
   NSDictionary *_content;
@@ -314,7 +318,9 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
   [super updateProps:props oldProps:oldProps];
   if (shouldReregister) [self unregisterAccessory];
   [self registerAccessoryIfPossible];
+#if RNDUO_HAS_IOS_27_SDK
   if (@available(iOS 27.0, *)) _registration.enabled = _enabled;
+#endif
   [self emitStateIfNeeded];
 }
 
@@ -343,6 +349,7 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
 
 - (void)registerAccessoryIfPossible
 {
+#if RNDUO_HAS_IOS_27_1_SDK
   if (!self.window || _registration) return;
   if (@available(iOS 27.1, *)) {
     UIViewController *host = RNDuoFindViewController(self);
@@ -362,10 +369,12 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
     _registration = [host registerSceneAccessory:accessory];
     _registration.enabled = _enabled;
   }
+#endif
 }
 
 - (void)unregisterAccessory
 {
+#if RNDUO_HAS_IOS_27_SDK
   if (@available(iOS 27.0, *)) {
     if (_registration && _registrationHost) {
       [_registrationHost unregisterSceneAccessory:_registration];
@@ -373,6 +382,7 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
     _registration = nil;
     _registrationHost = nil;
   }
+#endif
   [self restoreReactContainer];
 }
 
@@ -382,11 +392,13 @@ static NSMapTable<NSString *, RNDuoSceneAccessoryView *> *RNDuoAccessoryHosts(vo
   BOOL supported = NO;
   BOOL registered = NO;
   BOOL available = NO;
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     supported = YES;
     registered = _registration != nil;
     available = _registration.isAvailable;
   }
+#endif
   NSString *payload = RNDuoJSONString(@{
     @"supported": @(supported),
     @"registered": @(registered),

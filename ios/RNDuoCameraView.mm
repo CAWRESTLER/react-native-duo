@@ -31,8 +31,10 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   AVCaptureDevice *_device;
   AVCapturePhotoOutput *_photoOutput;
   AVCaptureDeviceRotationCoordinator *_rotationCoordinator API_AVAILABLE(ios(17.0));
+#if RNDUO_HAS_IOS_27_1_SDK
   AVCaptureDeviceDirectionCoordinator *_directionCoordinator API_AVAILABLE(ios(27.1));
   AVCaptureDeviceDirectionMap *_directionMap API_AVAILABLE(ios(27.1));
+#endif
   AVCaptureSmartFramingMonitor *_smartFramingMonitor API_AVAILABLE(ios(26.0));
   dispatch_queue_t _sessionQueue;
   NSString *_location;
@@ -94,6 +96,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     _previewView.previewLayer.session = _session;
     _previewView.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
     self.contentView = _previewView;
+#if RNDUO_HAS_IOS_27_1_SDK
     if (@available(iOS 27.1, *)) {
       __weak __typeof(self) weakSelf = self;
       _directionCoordinator = [[AVCaptureDeviceDirectionCoordinator alloc]
@@ -119,6 +122,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
             });
           }];
     }
+#endif
   }
   return self;
 }
@@ -401,6 +405,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
     [self stopSession];
     return;
   }
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) {
     AVCaptureDevice *resolvedDevice = [self resolveDeviceForLocation:_location];
     NSString *aspectRatio = [_dynamicAspectRatio copy];
@@ -483,10 +488,12 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
         [self emitStateIfNeeded];
       });
     });
-  } else {
+  } else
+#endif
+  {
     dispatch_async(_sessionQueue, ^{
       if (!self->_mounted.load()) return;
-      [self setCameraError:@"Duo cameras require iOS 27.1 or later."
+      [self setCameraError:@"Duo cameras require the iOS 27.1 SDK and iOS 27.1 or later."
                       code:@"unsupportedOS" nativeError:nil recoverable:NO];
       self->_cameraStatus = @"unsupported";
       [self emitStateIfNeeded];
@@ -509,6 +516,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   });
 }
 
+#if RNDUO_HAS_IOS_27_1_SDK
 - (AVCaptureDevice *)resolveDeviceForLocation:(NSString *)location API_AVAILABLE(ios(27.1))
 {
   if (_direction.length) {
@@ -545,6 +553,7 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
       position:AVCaptureDevicePositionUnspecified];
   return discovery.devices.firstObject;
 }
+#endif
 
 - (void)configureSmartFramingForDevice:(AVCaptureDevice *)device
 {
@@ -639,12 +648,14 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   }
 }
 
+#if RNDUO_HAS_IOS_27_1_SDK
 - (NSArray<NSString *> *)identifiersForDescriptors:(NSArray<AVCaptureDeviceDescriptor *> *)descriptors API_AVAILABLE(ios(27.1))
 {
   NSMutableArray<NSString *> *identifiers = [NSMutableArray arrayWithCapacity:descriptors.count];
   for (AVCaptureDeviceDescriptor *descriptor in descriptors) [identifiers addObject:descriptor.uniqueID];
   return identifiers;
 }
+#endif
 
 - (NSString *)permissionName
 {
@@ -667,11 +678,13 @@ static void *RNDuoRotationContext = &RNDuoRotationContext;
   BOOL supported = NO;
   NSArray *forwardCameraIds = @[];
   NSArray *backwardCameraIds = @[];
+#if RNDUO_HAS_IOS_27_1_SDK
   if (@available(iOS 27.1, *)) supported = YES;
   if (@available(iOS 27.1, *)) {
     forwardCameraIds = [self identifiersForDescriptors:_directionMap.forwardFacingDeviceDescriptors ?: @[]];
     backwardCameraIds = [self identifiersForDescriptors:_directionMap.backwardFacingDeviceDescriptors ?: @[]];
   }
+#endif
   NSString *location = [_location copy];
   NSString *direction = [_direction copy];
   NSString *source = [_cameraSource copy];
